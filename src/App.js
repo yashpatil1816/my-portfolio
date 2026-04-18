@@ -1,747 +1,608 @@
-import { useEffect, useRef, useState } from "react";
-import { motion, AnimatePresence, useScroll, useTransform, useSpring } from "framer-motion";
+import { useEffect, useRef, useState, useCallback } from "react";
 
 const GlobalStyle = () => (
   <style>{`
-    @import url('https://fonts.googleapis.com/css2?family=Libre+Baskerville:ital,wght@0,400;0,700;1,400&family=DM+Mono:wght@400;500&family=Inter:wght@300;400;500;600&display=swap');
-
-    :root {
-      --sb: #0a0908;
-      --sb2: #111009;
-      --sb-border: #1e1c18;
-      --sb-text: #ede8df;
-      --sb-sub: #7a7468;
-      --sb-muted: #3a3830;
-      --gold: #c8a96e;
-      --gold2: #a8893e;
-      --green: #2d7a4f;
-      --ct-bg: #f8f5f0;
-      --ct-card: #ffffff;
-      --ct-text: #18160f;
-      --ct-sub: #6b6455;
-      --ct-muted: #a09880;
-      --ct-line: #e8e2d8;
-      --serif: 'Libre Baskerville', Georgia, serif;
-      --sans: 'Inter', sans-serif;
-      --mono: 'DM Mono', monospace;
-      --sw: 300px;
-    }
+    @import url('https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@300;400;500;600;700&family=DM+Mono:wght@400;500&display=swap');
 
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
     html { scroll-behavior: smooth; }
-    body { background: var(--sb); color: var(--ct-text); font-family: var(--sans); overflow-x: hidden; -webkit-font-smoothing: antialiased; }
+    body { font-family: 'Space Grotesk', sans-serif; background: #030508; color: #e8edf5; overflow-x: hidden; -webkit-font-smoothing: antialiased; }
+    a { text-decoration: none; color: inherit; }
+    ::selection { background: rgba(59,130,246,0.25); }
     ::-webkit-scrollbar { width: 2px; }
     ::-webkit-scrollbar-track { background: transparent; }
-    ::-webkit-scrollbar-thumb { background: var(--gold2); border-radius: 1px; }
-    a { text-decoration: none; color: inherit; }
-    ::selection { background: rgba(200,169,110,0.18); }
+    ::-webkit-scrollbar-thumb { background: #3b82f6; border-radius: 2px; }
 
-    #particle-canvas { position: fixed; top: 0; left: 0; width: 100%; height: 100%; z-index: 0; pointer-events: none; }
+    #prog { position: fixed; top: 0; left: 0; height: 2px; background: #3b82f6; width: 0%; z-index: 9999; transition: width 0.1s linear; box-shadow: 0 0 8px #3b82f6; }
+    #particles { position: fixed; inset: 0; z-index: 0; pointer-events: none; }
 
-    .layout { display: flex; min-height: 100vh; position: relative; z-index: 1; }
+    .nav { position: fixed; top: 0; left: 0; right: 0; z-index: 100; display: flex; align-items: center; justify-content: space-between; padding: 0 36px; height: 58px; background: rgba(3,5,8,0.88); border-bottom: 1px solid rgba(255,255,255,0.04); backdrop-filter: blur(20px); -webkit-backdrop-filter: blur(20px); }
+    .nav-logo { font-size: 13px; font-weight: 700; color: rgba(255,255,255,0.9); letter-spacing: 0.1em; text-transform: uppercase; cursor: pointer; background: none; border: none; }
+    .nav-logo span { color: #3b82f6; }
+    .nav-links { display: flex; gap: 28px; }
+    .nav-link { font-family: 'DM Mono', monospace; font-size: 10px; color: rgba(255,255,255,0.35); letter-spacing: 0.1em; text-transform: uppercase; cursor: pointer; transition: color 0.2s; background: none; border: none; }
+    .nav-link:hover, .nav-link.active { color: #3b82f6; }
+    .nav-resume { padding: 7px 16px; border: 1px solid rgba(59,130,246,0.4); border-radius: 4px; font-family: 'DM Mono', monospace; font-size: 10px; color: #3b82f6; background: rgba(59,130,246,0.06); cursor: pointer; letter-spacing: 0.08em; transition: all 0.2s; text-decoration: none; display: inline-block; }
+    .nav-resume:hover { background: rgba(59,130,246,0.15); }
+    .nav-ham { display: none; flex-direction: column; gap: 4px; background: none; border: 1px solid rgba(255,255,255,0.08); border-radius: 4px; padding: 8px 9px; cursor: pointer; }
+    .ham-l { width: 18px; height: 1.5px; background: rgba(255,255,255,0.6); border-radius: 1px; transition: all 0.22s; }
 
-    .sidebar {
-      width: var(--sw); min-width: var(--sw);
-      background: rgba(10,9,8,0.97);
-      border-right: 1px solid var(--sb-border);
-      position: fixed; top: 0; left: 0; bottom: 0;
-      display: flex; flex-direction: column;
-      padding: 36px 24px; overflow-y: auto; z-index: 50;
-      backdrop-filter: blur(20px);
+    .mob-drawer { position: fixed; top: 0; left: 0; bottom: 0; z-index: 200; width: 270px; background: #060a10; border-right: 1px solid rgba(255,255,255,0.06); padding: 72px 24px 36px; transform: translateX(-100%); transition: transform 0.28s cubic-bezier(0.22,1,0.36,1); }
+    .mob-drawer.open { transform: translateX(0); }
+    .mob-overlay { position: fixed; inset: 0; z-index: 190; background: rgba(0,0,0,0.7); backdrop-filter: blur(4px); display: none; }
+    .mob-overlay.open { display: block; }
+    .mob-link { display: flex; align-items: center; gap: 12px; padding: 12px 10px; border-radius: 6px; font-family: 'DM Mono', monospace; font-size: 11px; color: rgba(255,255,255,0.35); letter-spacing: 0.1em; text-transform: uppercase; cursor: pointer; background: none; border: none; width: 100%; text-align: left; margin-bottom: 2px; transition: all 0.18s; }
+    .mob-link:hover { background: rgba(59,130,246,0.08); color: #3b82f6; }
+    .mob-link-num { font-size: 9px; color: #3b82f6; width: 20px; }
+
+    .main { position: relative; z-index: 1; padding-top: 58px; }
+
+    .hero { position: relative; padding: 72px 36px 56px; min-height: calc(100vh - 58px); display: flex; flex-direction: column; justify-content: center; overflow: hidden; }
+    .hero-bg { position: absolute; inset: 0; background: radial-gradient(ellipse at 50% 120%, rgba(59,130,246,0.18) 0%, transparent 55%), radial-gradient(ellipse at 85% 10%, rgba(59,130,246,0.08) 0%, transparent 40%), radial-gradient(ellipse at 15% 50%, rgba(30,60,120,0.15) 0%, transparent 45%); z-index: 0; }
+    .hero-grid-lines { position: absolute; inset: 0; z-index: 0; opacity: 0.025; background-image: linear-gradient(rgba(59,130,246,1) 1px, transparent 1px), linear-gradient(90deg, rgba(59,130,246,1) 1px, transparent 1px); background-size: 60px 60px; }
+    .hero-content { position: relative; z-index: 2; max-width: 900px; }
+    .hero-tag { display: inline-flex; align-items: center; gap: 8px; padding: 5px 13px; border: 1px solid rgba(59,130,246,0.25); border-radius: 2px; margin-bottom: 28px; background: rgba(59,130,246,0.05); animation: fadeUp 0.6s ease both; }
+    .tag-dot { width: 6px; height: 6px; border-radius: 50%; background: #3b82f6; box-shadow: 0 0 8px #3b82f6; animation: glow 2s infinite; }
+    @keyframes glow { 0%,100%{box-shadow:0 0 8px #3b82f6} 50%{box-shadow:0 0 16px #3b82f6,0 0 28px rgba(59,130,246,0.4)} }
+    .tag-txt { font-family: 'DM Mono', monospace; font-size: 9px; color: #3b82f6; letter-spacing: 0.1em; text-transform: uppercase; }
+    .hero-name { font-size: clamp(56px, 11vw, 100px); font-weight: 700; line-height: 0.88; letter-spacing: -3px; color: #fff; margin-bottom: 8px; text-shadow: 0 0 80px rgba(59,130,246,0.12); animation: fadeUp 0.6s 0.1s ease both; }
+    .hero-name .blue { color: #3b82f6; }
+    .hero-name .dim { color: rgba(255,255,255,0.15); }
+    .hero-sub-row { display: flex; align-items: center; gap: 16px; margin-top: 20px; margin-bottom: 22px; animation: fadeUp 0.6s 0.2s ease both; }
+    .hero-role { font-family: 'DM Mono', monospace; font-size: 10px; color: rgba(255,255,255,0.35); letter-spacing: 0.12em; text-transform: uppercase; white-space: nowrap; }
+    .hero-line { flex: 1; height: 1px; background: linear-gradient(90deg, rgba(59,130,246,0.3), transparent); min-width: 20px; }
+    .tw-txt { color: #3b82f6; }
+    .tw-cur { color: #3b82f6; animation: blink 1s step-end infinite; }
+    @keyframes blink { 0%,100%{opacity:1} 50%{opacity:0} }
+    .hero-desc { font-size: 14px; color: rgba(255,255,255,0.42); line-height: 1.9; max-width: 480px; margin-bottom: 32px; animation: fadeUp 0.6s 0.3s ease both; }
+    .hero-desc strong { color: rgba(255,255,255,0.82); font-weight: 500; }
+    .hero-actions { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; animation: fadeUp 0.6s 0.4s ease both; }
+    .btn-primary { padding: 11px 26px; background: #3b82f6; border: none; border-radius: 3px; font-family: 'Space Grotesk', sans-serif; font-size: 12px; font-weight: 600; color: #fff; cursor: pointer; letter-spacing: 0.05em; text-transform: uppercase; transition: all 0.2s; }
+    .btn-primary:hover { background: #2563eb; transform: translateY(-1px); box-shadow: 0 8px 24px rgba(59,130,246,0.3); }
+    .btn-ghost { padding: 11px 26px; background: transparent; border: 1px solid rgba(255,255,255,0.12); border-radius: 3px; font-family: 'Space Grotesk', sans-serif; font-size: 12px; color: rgba(255,255,255,0.45); cursor: pointer; letter-spacing: 0.05em; text-transform: uppercase; transition: all 0.2s; }
+    .btn-ghost:hover { border-color: rgba(59,130,246,0.4); color: #3b82f6; }
+    .scroll-hint { display: flex; align-items: center; gap: 8px; margin-left: auto; }
+    .scroll-line { width: 32px; height: 1px; background: rgba(255,255,255,0.12); }
+    .scroll-txt { font-family: 'DM Mono', monospace; font-size: 8px; color: rgba(255,255,255,0.18); letter-spacing: 0.12em; }
+
+    .stats-bar { display: grid; grid-template-columns: repeat(4, 1fr); border-top: 1px solid rgba(255,255,255,0.05); border-bottom: 1px solid rgba(255,255,255,0.05); position: relative; z-index: 1; }
+    .stat { padding: 20px 24px; border-right: 1px solid rgba(255,255,255,0.05); text-align: center; transition: background 0.2s; position: relative; overflow: hidden; }
+    .stat:last-child { border-right: none; }
+    .stat::after { content: ''; position: absolute; top: 0; left: 50%; transform: translateX(-50%) scaleX(0); width: 40%; height: 1px; background: #3b82f6; transition: transform 0.3s; }
+    .stat:hover::after { transform: translateX(-50%) scaleX(1); }
+    .stat:hover { background: rgba(59,130,246,0.04); }
+    .stat-n { font-size: 24px; font-weight: 700; color: #fff; letter-spacing: -0.5px; }
+    .stat-l { font-family: 'DM Mono', monospace; font-size: 8px; color: rgba(255,255,255,0.22); letter-spacing: 0.12em; text-transform: uppercase; margin-top: 4px; }
+
+    .mq-wrap { overflow: hidden; border-top: 1px solid rgba(255,255,255,0.04); border-bottom: 1px solid rgba(255,255,255,0.04); padding: 11px 0; background: rgba(59,130,246,0.02); position: relative; z-index: 1; }
+    .mq-track { display: flex; animation: mq 30s linear infinite; white-space: nowrap; }
+    .mq-item { font-family: 'DM Mono', monospace; font-size: 10px; color: rgba(255,255,255,0.15); padding: 0 20px; letter-spacing: 0.1em; }
+    .mq-item.hl { color: #3b82f6; }
+    @keyframes mq { from{transform:translateX(0)} to{transform:translateX(-50%)} }
+
+    .section { padding: 60px 36px; border-top: 1px solid rgba(255,255,255,0.04); position: relative; z-index: 1; }
+    .sec-header { display: flex; align-items: baseline; gap: 10px; margin-bottom: 6px; }
+    .sec-num { font-family: 'DM Mono', monospace; font-size: 10px; color: #3b82f6; }
+    .sec-lbl { font-family: 'DM Mono', monospace; font-size: 9px; color: rgba(255,255,255,0.2); letter-spacing: 0.15em; text-transform: uppercase; }
+    .sec-title { font-size: clamp(22px, 4vw, 36px); font-weight: 700; color: #fff; margin-bottom: 28px; letter-spacing: -1px; line-height: 1.1; }
+
+    .about-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 44px; }
+    .about-txt { font-size: 14px; color: rgba(255,255,255,0.48); line-height: 1.9; margin-bottom: 14px; }
+    .about-txt strong { color: rgba(255,255,255,0.85); font-weight: 500; }
+    .cpill { display: inline-block; font-family: 'DM Mono', monospace; font-size: 9px; padding: 2px 8px; border: 1px solid rgba(255,255,255,0.07); border-radius: 2px; color: rgba(255,255,255,0.38); margin: 2px; }
+    .info-table { width: 100%; border: 1px solid rgba(255,255,255,0.06); border-radius: 6px; overflow: hidden; margin-bottom: 14px; }
+    .info-row { display: flex; padding: 10px 14px; border-bottom: 1px solid rgba(255,255,255,0.04); }
+    .info-row:last-child { border-bottom: none; }
+    .info-row:nth-child(even) { background: rgba(255,255,255,0.02); }
+    .info-k { font-family: 'DM Mono', monospace; font-size: 9px; color: rgba(255,255,255,0.22); width: 68px; flex-shrink: 0; text-transform: uppercase; letter-spacing: 0.07em; padding-top: 1px; }
+    .info-v { font-size: 12px; color: rgba(255,255,255,0.62); }
+    .info-v.green { color: #22c55e; }
+    .cert-item { display: flex; gap: 10px; align-items: center; padding: 10px 12px; border: 1px solid rgba(255,255,255,0.06); border-radius: 6px; margin-bottom: 6px; transition: border-color 0.18s; }
+    .cert-item:hover { border-color: rgba(59,130,246,0.3); }
+    .cert-icon { width: 30px; height: 30px; border-radius: 4px; background: rgba(59,130,246,0.1); border: 1px solid rgba(59,130,246,0.2); display: flex; align-items: center; justify-content: center; font-size: 13px; flex-shrink: 0; }
+    .cert-name { font-size: 11px; color: rgba(255,255,255,0.6); }
+    .cert-org { font-family: 'DM Mono', monospace; font-size: 8px; color: rgba(255,255,255,0.22); margin-top: 2px; }
+
+    .proj-list { display: flex; flex-direction: column; gap: 1px; border: 1px solid rgba(255,255,255,0.06); border-radius: 8px; overflow: hidden; }
+    .proj-row { display: flex; align-items: center; padding: 18px 20px; background: rgba(255,255,255,0.02); transition: all 0.2s; cursor: pointer; gap: 14px; border-top: 1px solid rgba(255,255,255,0.04); }
+    .proj-row:first-child { border-top: none; }
+    .proj-row:hover { background: rgba(59,130,246,0.06); }
+    .proj-row:hover .pr-arrow { opacity: 1; transform: translateX(0); }
+    .proj-row.pr-highlight { border-left: 2px solid #3b82f6; }
+    .pr-num { font-family: 'DM Mono', monospace; font-size: 10px; color: rgba(255,255,255,0.2); width: 28px; flex-shrink: 0; }
+    .pr-title { font-size: 14px; font-weight: 600; color: #fff; flex: 1; min-width: 0; }
+    .pr-tag { font-family: 'DM Mono', monospace; font-size: 9px; padding: 2px 8px; border: 1px solid rgba(59,130,246,0.25); border-radius: 2px; color: #3b82f6; background: rgba(59,130,246,0.06); white-space: nowrap; flex-shrink: 0; }
+    .pr-metrics { display: flex; gap: 5px; flex-shrink: 0; }
+    .pr-metric { font-family: 'DM Mono', monospace; font-size: 9px; color: rgba(255,255,255,0.28); }
+    .pr-arrow { font-size: 14px; color: #3b82f6; opacity: 0; transform: translateX(-6px); transition: all 0.2s; flex-shrink: 0; }
+
+    .exp-card { border: 1px solid rgba(59,130,246,0.2); border-left: 3px solid #3b82f6; border-radius: 0 8px 8px 0; padding: 22px 24px; background: rgba(59,130,246,0.03); }
+    .exp-top { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 16px; flex-wrap: wrap; gap: 10px; }
+    .exp-company { font-size: 19px; font-weight: 700; color: #fff; margin-bottom: 4px; }
+    .exp-role-txt { font-size: 13px; color: rgba(255,255,255,0.48); }
+    .exp-org { font-family: 'DM Mono', monospace; font-size: 9px; color: rgba(255,255,255,0.22); margin-top: 3px; }
+    .exp-date { font-family: 'DM Mono', monospace; font-size: 10px; padding: 4px 10px; border: 1px solid rgba(255,255,255,0.1); border-radius: 3px; color: rgba(255,255,255,0.32); white-space: nowrap; }
+    .exp-bullets { list-style: none; margin-bottom: 16px; }
+    .exp-bullets li { display: flex; gap: 10px; font-size: 12px; color: rgba(255,255,255,0.42); line-height: 1.85; margin-bottom: 4px; }
+    .exp-bullets li::before { content: '—'; color: #3b82f6; flex-shrink: 0; }
+    .exp-techs { display: flex; flex-wrap: wrap; gap: 5px; }
+    .etag { font-family: 'DM Mono', monospace; font-size: 9px; padding: 2px 8px; border: 1px solid rgba(255,255,255,0.08); border-radius: 2px; color: rgba(255,255,255,0.32); }
+
+    .skills-inner { display: grid; grid-template-columns: 1fr 1fr; gap: 44px; }
+    .cat-row { display: flex; gap: 14px; align-items: flex-start; margin-bottom: 14px; }
+    .cat-lbl { font-family: 'DM Mono', monospace; font-size: 8px; color: #3b82f6; text-transform: uppercase; letter-spacing: 0.1em; width: 80px; flex-shrink: 0; padding-top: 3px; }
+    .cat-pills { display: flex; flex-wrap: wrap; gap: 4px; }
+    .sbar-row { margin-bottom: 18px; }
+    .sbar-info { display: flex; justify-content: space-between; margin-bottom: 7px; }
+    .sbar-name { font-size: 12px; color: rgba(255,255,255,0.52); }
+    .sbar-pct { font-family: 'DM Mono', monospace; font-size: 10px; color: rgba(255,255,255,0.2); }
+    .sbar-track { height: 1px; background: rgba(255,255,255,0.07); border-radius: 1px; overflow: hidden; }
+    .sbar-fill { height: 100%; background: linear-gradient(90deg, #3b82f6, #60a5fa); border-radius: 1px; width: 0; transition: width 1.4s cubic-bezier(0.22,1,0.36,1); }
+
+    .contact-grid { display: grid; grid-template-columns: 1fr 1.3fr; gap: 32px; }
+    .clinks { display: flex; flex-direction: column; gap: 8px; }
+    .clink { display: flex; align-items: center; justify-content: space-between; padding: 14px 14px; border: 1px solid rgba(255,255,255,0.07); border-radius: 6px; background: rgba(255,255,255,0.02); transition: all 0.18s; cursor: pointer; text-decoration: none; color: inherit; }
+    .clink:hover { border-color: rgba(59,130,246,0.4); background: rgba(59,130,246,0.05); transform: translateX(4px); }
+    .clink-l { display: flex; align-items: center; gap: 10px; }
+    .clink-ico { width: 32px; height: 32px; border-radius: 5px; background: rgba(59,130,246,0.1); border: 1px solid rgba(59,130,246,0.2); display: flex; align-items: center; justify-content: center; font-family: 'DM Mono', monospace; font-size: 9px; color: #3b82f6; flex-shrink: 0; }
+    .clink-lbl { font-family: 'DM Mono', monospace; font-size: 8px; color: rgba(255,255,255,0.22); text-transform: uppercase; letter-spacing: 0.1em; margin-bottom: 2px; }
+    .clink-val { font-size: 11px; color: rgba(255,255,255,0.65); font-weight: 500; }
+    .clink-arr { font-size: 12px; color: rgba(59,130,246,0.4); }
+    .form-box { background: rgba(255,255,255,0.02); border: 1px solid rgba(255,255,255,0.07); border-radius: 8px; padding: 22px; }
+    .flbl { font-family: 'DM Mono', monospace; font-size: 8px; color: rgba(255,255,255,0.25); text-transform: uppercase; letter-spacing: 0.1em; display: block; margin-bottom: 6px; }
+    .finput { width: 100%; padding: 10px 12px; background: rgba(255,255,255,0.04); border: 1px solid rgba(255,255,255,0.08); border-radius: 4px; font-size: 12px; color: rgba(255,255,255,0.65); font-family: 'Space Grotesk', sans-serif; margin-bottom: 12px; outline: none; transition: border-color 0.2s; }
+    .finput:focus { border-color: rgba(59,130,246,0.4); }
+    .finput::placeholder { color: rgba(255,255,255,0.2); }
+    .fsubmit { width: 100%; padding: 11px; background: #3b82f6; border: none; border-radius: 4px; font-family: 'Space Grotesk', sans-serif; font-size: 12px; font-weight: 600; color: #fff; cursor: pointer; letter-spacing: 0.06em; text-transform: uppercase; transition: all 0.2s; }
+    .fsubmit:hover { background: #2563eb; transform: translateY(-1px); box-shadow: 0 6px 20px rgba(59,130,246,0.3); }
+    .form-row { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+    .form-err { font-size: 11px; color: #f87171; margin-bottom: 10px; }
+
+    .footer { padding: 18px 36px; border-top: 1px solid rgba(255,255,255,0.04); display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 10px; position: relative; z-index: 1; }
+    .footer-l { font-family: 'DM Mono', monospace; font-size: 9px; color: rgba(255,255,255,0.18); letter-spacing: 0.06em; }
+
+    .modal-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.7); backdrop-filter: blur(12px); z-index: 300; display: flex; align-items: center; justify-content: center; padding: 16px; opacity: 0; pointer-events: none; transition: opacity 0.2s; }
+    .modal-overlay.open { opacity: 1; pointer-events: all; }
+    .modal-box { background: #090d14; border: 1px solid rgba(59,130,246,0.2); border-radius: 10px; padding: clamp(20px,4vw,36px); max-width: 560px; width: 100%; max-height: 88vh; overflow-y: auto; position: relative; transform: scale(0.94) translateY(16px); opacity: 0; transition: all 0.25s cubic-bezier(0.22,1,0.36,1); }
+    .modal-overlay.open .modal-box { transform: none; opacity: 1; }
+    .modal-close { position: absolute; top: 14px; right: 14px; background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.08); border-radius: 5px; width: 28px; height: 28px; cursor: pointer; color: rgba(255,255,255,0.4); display: flex; align-items: center; justify-content: center; font-size: 12px; transition: all 0.18s; }
+    .modal-close:hover { background: rgba(59,130,246,0.1); color: #3b82f6; }
+
+    @keyframes fadeUp { from{opacity:0;transform:translateY(18px)} to{opacity:1;transform:none} }
+    .reveal { opacity: 0; transform: translateY(16px); transition: opacity 0.6s ease, transform 0.6s ease; }
+    .reveal.in { opacity: 1; transform: none; }
+
+    .avail-banner { margin-top: 14px; padding: 12px 16px; border: 1px solid rgba(34,197,94,0.15); border-radius: 6px; background: rgba(34,197,94,0.04); display: flex; align-items: center; gap: 10px; }
+    .avail-dot { width: 7px; height: 7px; border-radius: 50%; background: #22c55e; flex-shrink: 0; box-shadow: 0 0 8px #22c55e; animation: pulse 2.5s infinite; }
+    @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:0.3} }
+
+    @media (max-width: 900px) {
+      .nav-links { display: none; }
+      .nav-resume { display: none; }
+      .nav-ham { display: flex; }
+      .hero { padding: 48px 22px 44px; min-height: auto; padding-bottom: 48px; }
+      .hero-name { font-size: clamp(48px, 13vw, 72px); letter-spacing: -2px; }
+      .hero-sub-row { flex-wrap: wrap; }
+      .scroll-hint { display: none; }
+      .hero-actions { gap: 10px; }
+      .stats-bar { grid-template-columns: repeat(2,1fr); }
+      .stat:nth-child(2) { border-right: none; }
+      .stat:nth-child(3) { border-right: 1px solid rgba(255,255,255,0.05); }
+      .stat:nth-child(1), .stat:nth-child(2) { border-bottom: 1px solid rgba(255,255,255,0.05); }
+      .section { padding: 48px 22px; }
+      .about-grid { grid-template-columns: 1fr; gap: 28px; }
+      .skills-inner { grid-template-columns: 1fr; gap: 32px; }
+      .contact-grid { grid-template-columns: 1fr; gap: 24px; }
+      .form-row { grid-template-columns: 1fr; }
+      .proj-row { flex-wrap: wrap; gap: 8px; }
+      .pr-metrics { display: none; }
+      .footer { flex-direction: column; align-items: flex-start; gap: 6px; padding: 18px 22px; }
+      .mob-bottom-nav { display: flex !important; }
+      .main { padding-bottom: 58px; }
+    }
+    @media (max-width: 480px) {
+      .hero-name { font-size: clamp(42px, 14vw, 64px); }
+      .tag-txt { font-size: 8px; }
+      .stats-bar { grid-template-columns: repeat(2,1fr); }
+      .btn-primary, .btn-ghost { padding: 10px 18px; font-size: 11px; }
+      .sec-title { font-size: clamp(20px,6vw,28px); }
     }
 
-    .content { margin-left: var(--sw); flex: 1; min-height: 100vh; }
-
-    .section { padding: 80px 60px; border-bottom: 1px solid var(--ct-line); position: relative; overflow: hidden; }
-
-    .nav-item {
-      display: flex; align-items: center; gap: 12px;
-      padding: 10px 12px; border-radius: 7px; cursor: pointer;
-      transition: all 0.2s; color: var(--sb-sub);
-      background: transparent; border: none;
-      font-family: var(--sans); font-size: 13px; font-weight: 400;
-      width: 100%; text-align: left; margin-bottom: 2px; letter-spacing: 0.01em;
-    }
-    .nav-item:hover { background: rgba(255,255,255,0.04); color: var(--sb-text); }
-    .nav-item.active { background: rgba(200,169,110,0.08); color: var(--sb-text); border-left: 2px solid var(--gold); padding-left: 10px; }
-    .nav-num { font-family: var(--mono); font-size: 9px; color: var(--gold); width: 18px; flex-shrink: 0; }
-
-    .tag { display: inline-block; font-family: var(--mono); font-size: 10px; padding: 3px 8px; background: transparent; border: 1px solid var(--ct-line); border-radius: 3px; color: var(--ct-sub); }
-
-    .skill-track { height: 1px; background: var(--ct-line); border-radius: 1px; overflow: hidden; margin-top: 8px; }
-    .skill-fill { height: 100%; background: linear-gradient(90deg, var(--gold), var(--gold2)); border-radius: 1px; transition: width 1.4s cubic-bezier(0.22,1,0.36,1); }
-
-    .tilt-card {
-      background: var(--ct-card); border: 1px solid var(--ct-line);
-      border-radius: 10px; padding: 24px; cursor: pointer; margin-bottom: 14px;
-      transform-style: preserve-3d; will-change: transform;
-      transition: border-color 0.2s, box-shadow 0.2s;
-    }
-    .tilt-card:hover { border-color: var(--gold); box-shadow: 0 20px 60px rgba(0,0,0,0.08), 0 0 0 1px rgba(200,169,110,0.12); }
-
-    .field { width: 100%; padding: 11px 14px; background: var(--ct-bg); border: 1px solid var(--ct-line); border-radius: 6px; font-family: var(--sans); font-size: 13px; color: var(--ct-text); outline: none; transition: border-color 0.2s; }
-    .field:focus { border-color: var(--gold); }
-    .field::placeholder { color: var(--ct-muted); }
-
-    .btn-dark { display: inline-flex; align-items: center; gap: 8px; padding: 11px 22px; background: var(--ct-text); color: #f8f5f0; font-family: var(--sans); font-size: 13px; font-weight: 500; border: none; border-radius: 6px; cursor: pointer; transition: opacity 0.18s, transform 0.15s; }
-    .btn-dark:hover { opacity: 0.85; transform: translateY(-1px); }
-
-    .btn-outline { display: inline-flex; align-items: center; gap: 8px; padding: 11px 22px; background: transparent; color: var(--ct-sub); font-family: var(--sans); font-size: 13px; font-weight: 400; border: 1px solid var(--ct-line); border-radius: 6px; cursor: pointer; transition: all 0.18s; }
-    .btn-outline:hover { border-color: var(--ct-text); color: var(--ct-text); transform: translateY(-1px); }
-
-    .btn-gold { display: inline-flex; align-items: center; gap: 8px; padding: 10px 20px; background: var(--gold); color: var(--sb); font-family: var(--sans); font-size: 12px; font-weight: 600; border: none; border-radius: 6px; cursor: pointer; transition: opacity 0.18s, transform 0.15s; }
-    .btn-gold:hover { opacity: 0.9; transform: translateY(-1px); }
-
-    .exp-card { background: var(--ct-card); border: 1px solid var(--ct-line); border-left: 3px solid var(--gold); border-radius: 0 10px 10px 0; padding: 24px; margin-bottom: 14px; }
-
-    .contact-link { display: flex; align-items: center; justify-content: space-between; gap: 14px; padding: 14px 16px; background: var(--ct-card); border: 1px solid var(--ct-line); border-radius: 8px; transition: all 0.18s; margin-bottom: 8px; }
-    .contact-link:hover { border-color: var(--gold); transform: translateX(4px); }
-
-    .marquee-wrap { overflow: hidden; border-top: 1px solid var(--ct-line); border-bottom: 1px solid var(--ct-line); padding: 14px 0; background: var(--ct-card); }
-    .marquee-track { display: flex; animation: marquee 32s linear infinite; white-space: nowrap; }
-    .marquee-track span { font-family: var(--mono); font-size: 11px; color: var(--ct-muted); padding: 0 28px; letter-spacing: 0.12em; }
-    .marquee-track span.acc { color: var(--gold); }
-    @keyframes marquee { from{transform:translateX(0)} to{transform:translateX(-50%)} }
-
-    @keyframes blink { 0%,100%{opacity:1}50%{opacity:0} }
-    @keyframes pulse { 0%,100%{opacity:1}50%{opacity:0.25} }
-    @keyframes float { 0%,100%{transform:translateY(0)}50%{transform:translateY(-5px)} }
-    @keyframes slideIn { from{opacity:0;transform:translateX(-10px)}to{opacity:1;transform:none} }
-    @keyframes spin { from{transform:rotate(0deg)}to{transform:rotate(360deg)} }
-
-    .div-line { height: 1px; background: var(--sb-border); margin: 18px 0; }
-
-    @media (max-width: 960px) {
-      :root { --sw: 0px; }
-      .sidebar { display: none; }
-      .content { margin-left: 0; }
-      .mobile-header { display: flex !important; }
-      .section { padding: 52px 22px; }
-      .hero-grid { grid-template-columns: 1fr !important; }
-      .about-grid { grid-template-columns: 1fr !important; }
-      .skills-grid { grid-template-columns: 1fr !important; }
-      .contact-grid { grid-template-columns: 1fr !important; }
-    }
-
-    .mobile-header { display: none; position: fixed; top: 0; left: 0; right: 0; z-index: 100; background: rgba(10,9,8,0.97); padding: 0 20px; height: 56px; border-bottom: 1px solid var(--sb-border); backdrop-filter: blur(20px); align-items: center; justify-content: space-between; }
-
-    .mob-menu-panel { position: fixed; top: 0; left: 0; bottom: 0; z-index: 95; width: 280px; background: var(--sb); border-right: 1px solid var(--sb-border); padding: 72px 20px 40px; overflow-y: auto; animation: slideIn 0.22s ease; }
-    .mob-overlay { position: fixed; inset: 0; z-index: 90; background: rgba(0,0,0,0.65); backdrop-filter: blur(4px); }
-
-    .mob-bottom-nav { display: none; position: fixed; bottom: 0; left: 0; right: 0; z-index: 100; background: rgba(10,9,8,0.97); border-top: 1px solid var(--sb-border); backdrop-filter: blur(20px); padding: 6px 0 env(safe-area-inset-bottom,6px); }
-    .mob-btn { flex: 1; display: flex; flex-direction: column; align-items: center; gap: 2px; background: none; border: none; cursor: pointer; padding: 5px 2px; color: var(--sb-sub); font-family: var(--mono); font-size: 8px; transition: color 0.18s; }
-    .mob-btn.active { color: var(--gold); }
-
-    @media (max-width: 960px) { .mob-bottom-nav { display: flex; } .content { padding-bottom: 60px; } }
-    @media (max-width: 600px) { .stats-grid { grid-template-columns: repeat(2,1fr) !important; } }
+    .mob-bottom-nav { display: none; position: fixed; bottom: 0; left: 0; right: 0; z-index: 100; background: rgba(3,5,8,0.95); border-top: 1px solid rgba(255,255,255,0.06); backdrop-filter: blur(20px); padding: 6px 0 env(safe-area-inset-bottom, 6px); }
+    .mbn-btn { flex: 1; display: flex; flex-direction: column; align-items: center; gap: 3px; background: none; border: none; cursor: pointer; color: rgba(255,255,255,0.25); font-family: 'DM Mono', monospace; font-size: 8px; letter-spacing: 0.06em; transition: color 0.18s; padding: 4px 2px; }
+    .mbn-btn.active, .mbn-btn:hover { color: #3b82f6; }
+    .mbn-icon { font-size: 15px; line-height: 1; }
   `}</style>
 );
 
-const ParticleCanvas = () => {
+/* ── DATA ── */
+const PROJECTS = {
+  'TicketFlow': { num:'01', status:'ONGOING', tag:'DISTRIBUTED SYSTEMS', detail:'Designed a distributed ticket booking system handling 5K+ concurrent users. Implemented Redis-based distributed seat locking (SET NX + TTL 10 min) to prevent race conditions. Built event-driven architecture using Apache Kafka for booking and notification services. Secured APIs using stateless JWT authentication with RBAC and BCrypt encryption.', arch:'Event-Driven Microservices', tech:['Spring Boot','MySQL','Redis','Kafka','JWT'], metrics:['5K users','<200ms latency'], github:'https://github.com/yashpatil1816' },
+  'Transaction Insight Engine': { num:'02', status:'BUILT', tag:'AGENTIC AI', detail:'Designed a real-time fraud detection pipeline using Kafka for async event streaming and Redis for per-user transaction caching. Built a 4-rule deterministic engine (amount spike, rapid-fire, new location, new device). Integrated LangChain4j agentic loop for uncertain cases with step-by-step reasoning, tool calls, and MySQL audit logs.', arch:'Agentic AI + Event-Driven', tech:['Java 17','Kafka','LangChain4j','Redis','Spring AI','JWT'], metrics:['<100ms','85% auto-routed'], github:'https://github.com/yashpatil1816' },
+  'J.P. Morgan SWE': { num:'03', status:'JAN 2025', tag:'VIRTUAL · FORAGE', detail:'Completed J.P. Morgan Chase & Co. Software Engineering Virtual Experience on Forage. Developed backend services using Java and Spring Boot. Integrated Apache Kafka for asynchronous communication. Applied Controller–Service–Repository layered architecture for clean modular design.', arch:'Controller – Service – Repository', tech:['Java','Spring Boot','Apache Kafka','JPA','H2'], metrics:['REST APIs','Kafka'], github:'https://github.com/yashpatil1816' },
+  'WeatherSphere': { num:'04', status:'2024', tag:'API INTEGRATION', detail:'Spring Boot service acting as a proxy to OpenWeatherMap REST API. Handles request routing, response transformation, error management, and JSON deserialization.', arch:'API Proxy + Transform', tech:['Java','Spring Boot','REST API','OpenWeatherMap'], metrics:['Live API','Proxy'], github:'https://github.com/yashpatil1816' }
+};
+
+const MQ = ['Java','·','Spring Boot','·','Apache Kafka','·','Redis','·','LangChain4j','·','Microservices','·','Spring Security','·','JWT & RBAC','·','MySQL','·','REST APIs','·','Docker','·','CI/CD','·'];
+const MQ_HL = new Set(['Java','Apache Kafka','LangChain4j','Spring Security','MySQL','Docker']);
+const TW_WORDS = ['Spring Boot Engineer','Distributed Systems','Agentic AI Builder','REST API Specialist'];
+
+/* ── TYPEWRITER ── */
+function Typewriter() {
+  const [idx, setIdx] = useState(0);
+  const [sub, setSub] = useState(0);
+  const [del, setDel] = useState(false);
+  useEffect(() => {
+    const w = TW_WORDS[idx];
+    let t;
+    if (!del && sub < w.length) t = setTimeout(() => setSub(s => s + 1), 65);
+    else if (!del) t = setTimeout(() => setDel(true), 2200);
+    else if (sub > 0) t = setTimeout(() => setSub(s => s - 1), 28);
+    else { setDel(false); setIdx(i => (i + 1) % TW_WORDS.length); }
+    return () => clearTimeout(t);
+  }, [idx, sub, del]);
+  return <><span className="tw-txt">{TW_WORDS[idx].slice(0, sub)}</span><span className="tw-cur">|</span></>;
+}
+
+/* ── SKILL BAR ── */
+function SkillBar({ name, pct, delay }) {
+  const [w, setW] = useState(0);
   const ref = useRef();
   useEffect(() => {
-    const canvas = ref.current;
-    const ctx = canvas.getContext("2d");
-    let W = canvas.width = window.innerWidth;
-    let H = canvas.height = window.innerHeight;
-    let mouse = { x: W / 2, y: H / 2 };
-    const particles = Array.from({ length: 100 }, () => ({
-      x: Math.random() * W, y: Math.random() * H,
-      vx: (Math.random() - 0.5) * 0.3, vy: (Math.random() - 0.5) * 0.3,
-      r: Math.random() * 1.2 + 0.3, opacity: Math.random() * 0.5 + 0.1,
-    }));
-    const onMouse = e => { mouse.x = e.clientX; mouse.y = e.clientY; };
-    const onResize = () => { W = canvas.width = window.innerWidth; H = canvas.height = window.innerHeight; };
-    window.addEventListener("mousemove", onMouse);
-    window.addEventListener("resize", onResize);
+    const obs = new IntersectionObserver(([e]) => { if (e.isIntersecting) setTimeout(() => setW(pct), delay); }, { threshold: 0.2 });
+    if (ref.current) obs.observe(ref.current);
+    return () => obs.disconnect();
+  }, [pct, delay]);
+  return (
+    <div className="sbar-row" ref={ref}>
+      <div className="sbar-info"><span className="sbar-name">{name}</span><span className="sbar-pct">{pct}%</span></div>
+      <div className="sbar-track"><div className="sbar-fill" style={{ width: `${w}%` }} /></div>
+    </div>
+  );
+}
+
+/* ── PARTICLES ── */
+function ParticleCanvas() {
+  const ref = useRef();
+  useEffect(() => {
+    const c = ref.current;
+    const ctx = c.getContext('2d');
+    let W, H, mouse = { x: 0, y: 0 };
+    const pts = [];
+    const resize = () => { W = c.width = window.innerWidth; H = c.height = window.innerHeight; };
+    resize();
+    window.addEventListener('resize', resize);
+    window.addEventListener('mousemove', e => { mouse.x = e.clientX; mouse.y = e.clientY; });
+    for (let i = 0; i < 80; i++) pts.push({ x: Math.random() * window.innerWidth, y: Math.random() * window.innerHeight, vx: (Math.random() - 0.5) * 0.25, vy: (Math.random() - 0.5) * 0.25, r: Math.random() * 1.1 + 0.3, o: Math.random() * 0.35 + 0.05 });
     let raf;
-    const draw = () => {
+    const loop = () => {
       ctx.clearRect(0, 0, W, H);
-      particles.forEach(p => {
-        const dx = mouse.x - p.x, dy = mouse.y - p.y;
-        const dist = Math.sqrt(dx * dx + dy * dy);
-        if (dist < 180) { p.vx += dx / dist * 0.012; p.vy += dy / dist * 0.012; }
+      pts.forEach(p => {
+        const dx = mouse.x - p.x, dy = mouse.y - p.y, d = Math.sqrt(dx*dx + dy*dy);
+        if (d < 160) { p.vx += dx/d*0.01; p.vy += dy/d*0.01; }
         p.vx *= 0.97; p.vy *= 0.97;
-        p.x += p.vx; p.y += p.vy;
-        if (p.x < 0) p.x = W; if (p.x > W) p.x = 0;
-        if (p.y < 0) p.y = H; if (p.y > H) p.y = 0;
-        ctx.beginPath();
-        ctx.arc(p.x, p.y, p.r, 0, Math.PI * 2);
-        ctx.fillStyle = `rgba(200,169,110,${p.opacity})`;
-        ctx.fill();
+        p.x = (p.x + p.vx + W) % W; p.y = (p.y + p.vy + H) % H;
+        ctx.beginPath(); ctx.arc(p.x, p.y, p.r, 0, Math.PI*2);
+        ctx.fillStyle = `rgba(59,130,246,${p.o})`; ctx.fill();
       });
-      particles.forEach((a, i) => {
-        for (let j = i + 1; j < particles.length; j++) {
-          const b = particles[j];
-          const dx = a.x - b.x, dy = a.y - b.y;
-          const d = Math.sqrt(dx * dx + dy * dy);
-          if (d < 110) {
-            ctx.beginPath(); ctx.moveTo(a.x, a.y); ctx.lineTo(b.x, b.y);
-            ctx.strokeStyle = `rgba(200,169,110,${0.055 * (1 - d / 110)})`;
-            ctx.lineWidth = 0.5; ctx.stroke();
-          }
+      pts.forEach((a, i) => {
+        for (let j = i+1; j < pts.length; j++) {
+          const b = pts[j], dx = a.x-b.x, dy = a.y-b.y, d = Math.sqrt(dx*dx+dy*dy);
+          if (d < 100) { ctx.beginPath(); ctx.moveTo(a.x,a.y); ctx.lineTo(b.x,b.y); ctx.strokeStyle = `rgba(59,130,246,${0.06*(1-d/100)})`; ctx.lineWidth = 0.5; ctx.stroke(); }
         }
       });
-      raf = requestAnimationFrame(draw);
+      raf = requestAnimationFrame(loop);
     };
-    draw();
-    return () => { cancelAnimationFrame(raf); window.removeEventListener("mousemove", onMouse); window.removeEventListener("resize", onResize); };
+    loop();
+    return () => { cancelAnimationFrame(raf); window.removeEventListener('resize', resize); };
   }, []);
-  return <canvas id="particle-canvas" ref={ref} />;
-};
+  return <canvas id="particles" ref={ref} />;
+}
 
-const Typewriter = ({ words, speed = 65, pause = 2400 }) => {
-  const [idx, setIdx] = useState(0), [sub, setSub] = useState(0), [del, setDel] = useState(false);
+/* ── MODAL ── */
+function Modal({ name, onClose }) {
+  const p = name ? PROJECTS[name] : null;
   useEffect(() => {
-    const word = words[idx];
-    const t = del
-      ? setTimeout(() => { setSub(s => s - 1); if (sub <= 1) { setDel(false); setIdx(i => (i + 1) % words.length); } }, 28)
-      : sub < word.length ? setTimeout(() => setSub(s => s + 1), speed)
-      : setTimeout(() => setDel(true), pause);
-    return () => clearTimeout(t);
-  }, [idx, sub, del, words, speed, pause]);
-  return <><span style={{ color: "var(--gold)" }}>{words[idx].slice(0, sub)}</span><span style={{ animation: "blink 1s step-end infinite", color: "var(--gold)" }}>|</span></>;
-};
-
-const TiltCard = ({ children, onClick, highlight }) => {
-  const ref = useRef();
-  const onMove = e => {
-    const el = ref.current; if (!el) return;
-    const r = el.getBoundingClientRect();
-    const x = ((e.clientX - r.left) / r.width - 0.5) * 12;
-    const y = ((e.clientY - r.top) / r.height - 0.5) * -12;
-    el.style.transform = `perspective(900px) rotateX(${y}deg) rotateY(${x}deg) translateZ(6px)`;
-  };
-  const onLeave = () => { if (ref.current) ref.current.style.transform = "perspective(900px) rotateX(0deg) rotateY(0deg) translateZ(0px)"; };
+    const fn = e => { if (e.key === 'Escape') onClose(); };
+    document.addEventListener('keydown', fn);
+    return () => document.removeEventListener('keydown', fn);
+  }, [onClose]);
   return (
-    <div ref={ref} className="tilt-card" onMouseMove={onMove} onMouseLeave={onLeave} onClick={onClick}
-      style={{ borderLeft: highlight ? "3px solid var(--gold)" : "1px solid var(--ct-line)", borderRadius: highlight ? "0 10px 10px 0" : "10px", transition: "transform 0.18s ease, border-color 0.2s, box-shadow 0.2s" }}>
-      {children}
+    <div className={`modal-overlay ${p ? 'open' : ''}`} onClick={onClose}>
+      <div className="modal-box" onClick={e => e.stopPropagation()}>
+        <button className="modal-close" onClick={onClose}>✕</button>
+        {p && (<>
+          <div style={{ display:'flex', alignItems:'center', gap:10, marginBottom:16 }}>
+            <span style={{ fontFamily:"'DM Mono',monospace", fontSize:9, color:'rgba(255,255,255,0.25)' }}>{p.num} · {p.status}</span>
+            <span style={{ fontFamily:"'DM Mono',monospace", fontSize:9, padding:'2px 8px', border:'1px solid rgba(59,130,246,0.25)', borderRadius:2, color:'#3b82f6', background:'rgba(59,130,246,0.06)' }}>{p.tag}</span>
+          </div>
+          <h3 style={{ fontFamily:"'Space Grotesk',sans-serif", fontSize:'clamp(20px,3vw,26px)', fontWeight:700, color:'#fff', marginBottom:14, letterSpacing:'-0.5px' }}>{name}</h3>
+          <p style={{ fontSize:13, color:'rgba(255,255,255,0.45)', lineHeight:1.9, marginBottom:18 }}>{p.detail}</p>
+          <div style={{ marginBottom:14 }}>
+            <span style={{ fontFamily:"'DM Mono',monospace", fontSize:8, color:'rgba(255,255,255,0.2)', textTransform:'uppercase', letterSpacing:'0.1em' }}>Architecture</span>
+            <p style={{ fontSize:12, color:'rgba(255,255,255,0.5)', marginTop:4 }}>{p.arch}</p>
+          </div>
+          <div style={{ display:'flex', flexWrap:'wrap', gap:5, marginBottom:10 }}>
+            {p.metrics.map(m => <span key={m} style={{ fontFamily:"'DM Mono',monospace", fontSize:9, color:'#3b82f6', background:'rgba(59,130,246,0.08)', border:'1px solid rgba(59,130,246,0.2)', borderRadius:3, padding:'2px 8px' }}>{m}</span>)}
+          </div>
+          <div style={{ display:'flex', flexWrap:'wrap', gap:5, marginBottom:22 }}>
+            {p.tech.map(t => <span key={t} className="etag">{t}</span>)}
+          </div>
+          <a href={p.github} target="_blank" rel="noreferrer"
+            style={{ display:'inline-flex', alignItems:'center', gap:8, padding:'10px 20px', border:'1px solid rgba(255,255,255,0.1)', borderRadius:4, fontFamily:"'DM Mono',monospace", fontSize:10, color:'rgba(255,255,255,0.45)', letterSpacing:'0.08em', transition:'all 0.18s' }}
+            onMouseOver={e => { e.currentTarget.style.borderColor='rgba(59,130,246,0.4)'; e.currentTarget.style.color='#3b82f6'; }}
+            onMouseOut={e => { e.currentTarget.style.borderColor='rgba(255,255,255,0.1)'; e.currentTarget.style.color='rgba(255,255,255,0.45)'; }}>
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="currentColor"><path d="M12 0C5.37 0 0 5.37 0 12c0 5.31 3.435 9.795 8.205 11.385.6.105.825-.255.825-.57 0-.285-.015-1.23-.015-2.235-3.015.555-3.795-.735-4.035-1.41-.135-.345-.72-1.41-1.23-1.695-.42-.225-1.02-.78-.015-.795.945-.015 1.62.87 1.845 1.23 1.08 1.815 2.805 1.305 3.495.99.105-.78.42-1.305.765-1.605-2.67-.3-5.46-1.335-5.46-5.925 0-1.305.465-2.385 1.23-3.225-.12-.3-.54-1.53.12-3.18 0 0 1.005-.315 3.3 1.23.96-.27 1.98-.405 3-.405s2.04.135 3 .405c2.295-1.56 3.3-1.23 3.3-1.23.66 1.65.24 2.88.12 3.18.765.84 1.23 1.905 1.23 3.225 0 4.605-2.805 5.625-5.475 5.925.435.375.81 1.095.81 2.22 0 1.605-.015 2.895-.015 3.3 0 .315.225.69.825.57A12.02 12.02 0 0024 12c0-6.63-5.37-12-12-12z"/></svg>
+            VIEW ON GITHUB
+          </a>
+        </>)}
+      </div>
     </div>
   );
-};
+}
 
-const SkillBar = ({ name, level, delay }) => {
-  const [w, setW] = useState(0); const ref = useRef();
-  useEffect(() => {
-    const obs = new IntersectionObserver(([e]) => { if (e.isIntersecting) setTimeout(() => setW(level), delay); }, { threshold: 0.2 });
-    if (ref.current) obs.observe(ref.current); return () => obs.disconnect();
-  }, [level, delay]);
-  return (
-    <div ref={ref} style={{ marginBottom: 18 }}>
-      <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 6 }}>
-        <span style={{ fontSize: 13, color: "var(--ct-sub)" }}>{name}</span>
-        <span style={{ fontFamily: "var(--mono)", fontSize: 10, color: "var(--ct-muted)" }}>{level}%</span>
-      </div>
-      <div className="skill-track"><div className="skill-fill" style={{ width: `${w}%` }} /></div>
-    </div>
-  );
-};
-
-const ParallaxSection = ({ children, id, className, style }) => {
-  const ref = useRef();
-  const { scrollYProgress } = useScroll({ target: ref, offset: ["start end", "end start"] });
-  const y = useTransform(scrollYProgress, [0, 1], ["0%", "8%"]);
-  return (
-    <section ref={ref} id={id} className={`section ${className || ""}`} style={style}>
-      <motion.div style={{ position: "absolute", inset: 0, y, zIndex: 0, pointerEvents: "none", backgroundImage: "radial-gradient(circle at 80% 20%, rgba(200,169,110,0.03) 0%, transparent 55%)" }} />
-      <div style={{ position: "relative", zIndex: 1 }}>{children}</div>
-    </section>
-  );
-};
-
-const SH = ({ num, label, title }) => (
-  <div style={{ marginBottom: 44 }}>
-    <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 8 }}>
-      <span style={{ fontFamily: "var(--mono)", fontSize: 10, color: "var(--gold)" }}>{num} —</span>
-      <span style={{ fontFamily: "var(--mono)", fontSize: 9, color: "var(--ct-muted)", letterSpacing: "0.16em", textTransform: "uppercase" }}>{label}</span>
-    </div>
-    <h2 style={{ fontFamily: "var(--serif)", fontSize: "clamp(28px,4vw,44px)", fontWeight: 700, color: "var(--ct-text)", lineHeight: 1.1, letterSpacing: "-0.5px" }}>{title}</h2>
-    <div style={{ width: 32, height: 1, background: "var(--gold)", marginTop: 14, opacity: 0.6 }} />
-  </div>
-);
-
-const GH = <svg width="15" height="15" viewBox="0 0 24 24" fill="currentColor"><path d="M12 0C5.37 0 0 5.37 0 12c0 5.31 3.435 9.795 8.205 11.385.6.105.825-.255.825-.57 0-.285-.015-1.23-.015-2.235-3.015.555-3.795-.735-4.035-1.41-.135-.345-.72-1.41-1.23-1.695-.42-.225-1.02-.78-.015-.795.945-.015 1.62.87 1.845 1.23 1.08 1.815 2.805 1.305 3.495.99.105-.78.42-1.305.765-1.605-2.67-.3-5.46-1.335-5.46-5.925 0-1.305.465-2.385 1.23-3.225-.12-.3-.54-1.53.12-3.18 0 0 1.005-.315 3.3 1.23.96-.27 1.98-.405 3-.405s2.04.135 3 .405c2.295-1.56 3.3-1.23 3.3-1.23.66 1.65.24 2.88.12 3.18.765.84 1.23 1.905 1.23 3.225 0 4.605-2.805 5.625-5.475 5.925.435.375.81 1.095.81 2.22 0 1.605-.015 2.895-.015 3.3 0 .315.225.69.825.57A12.02 12.02 0 0024 12c0-6.63-5.37-12-12-12z"/></svg>;
-const LI = <svg width="15" height="15" viewBox="0 0 24 24" fill="currentColor"><path d="M20.447 20.452h-3.554v-5.569c0-1.328-.027-3.037-1.852-3.037-1.853 0-2.136 1.445-2.136 2.939v5.667H9.351V9h3.414v1.561h.046c.477-.9 1.637-1.85 3.37-1.85 3.601 0 4.267 2.37 4.267 5.455v6.286zM5.337 7.433a2.062 2.062 0 01-2.063-2.065 2.064 2.064 0 112.063 2.065zm1.782 13.019H3.555V9h3.564v11.452zM22.225 0H1.771C.792 0 0 .774 0 1.729v20.542C0 23.227.792 24 1.771 24h20.451C23.2 24 24 23.227 24 22.271V1.729C24 .774 23.2 0 22.222 0h.003z"/></svg>;
-const EM = <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><rect x="2" y="4" width="20" height="16" rx="2"/><path d="m22 7-10 7L2 7"/></svg>;
-const PH = <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M22 16.92v3a2 2 0 01-2.18 2 19.79 19.79 0 01-8.63-3.07A19.5 19.5 0 013.07 9.81a19.79 19.79 0 01-3.07-8.67A2 2 0 012.18 1h3a2 2 0 012 1.72c.127.96.361 1.903.7 2.81a2 2 0 01-.45 2.11L6.91 8.15a16 16 0 006.34 6.34l1.47-1.47a2 2 0 012.11-.45c.907.339 1.85.573 2.81.7A2 2 0 0122 16.92z"/></svg>;
-const ARR = <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M7 17L17 7M17 7H7M17 7v10"/></svg>;
-
-const PROJECTS = [
-  { num:"01", status:"ONGOING", tag:"DISTRIBUTED SYSTEMS", title:"TicketFlow", description:"Distributed ticket booking handling 5K+ concurrent users with sub-200ms latency. Redis seat locking, Kafka async pipelines, JWT RBAC security.", tech:["Spring Boot","MySQL","Redis","Kafka","JWT"], metrics:["5K users","<200ms"], detail:"Designed a distributed ticket booking system handling 5K+ concurrent users. Implemented Redis-based distributed seat locking (SET NX + TTL 10 min) to prevent race conditions. Built event-driven architecture using Apache Kafka for booking and notification services. Secured APIs using stateless JWT authentication with RBAC and BCrypt encryption.", arch:"Event-Driven Microservices", github:"https://github.com/yashpatil1816", highlight:true },
-  { num:"02", status:"BUILT", tag:"AGENTIC AI", title:"Transaction Insight Engine", description:"Real-time UPI fraud detection. 4-rule engine auto-routes 85% of transactions. LangChain4j agentic loop handles uncertain cases in <100ms.", tech:["Java 17","Kafka","LangChain4j","Redis","Spring AI","JWT"], metrics:["<100ms","85% routed"], detail:"Designed a real-time fraud detection pipeline using Kafka for async event streaming and Redis for per-user transaction caching. Built a 4-rule deterministic engine (amount spike, rapid-fire, new location, new device). Integrated LangChain4j agentic loop for uncertain cases with step-by-step reasoning, tool calls, and MySQL audit logs.", arch:"Agentic AI + Event-Driven", github:"https://github.com/yashpatil1816" },
-  { num:"03", status:"JAN 2025", tag:"VIRTUAL · FORAGE", title:"J.P. Morgan SWE", description:"Software engineering simulation: Java + Spring Boot REST APIs, Apache Kafka async messaging, JPA entities with H2 database.", tech:["Java","Spring Boot","Apache Kafka","JPA","H2"], metrics:["REST APIs","Kafka"], detail:"Completed J.P. Morgan Chase & Co. Software Engineering Virtual Experience on Forage. Developed backend services using Java and Spring Boot. Integrated Apache Kafka for asynchronous communication. Applied Controller–Service–Repository layered architecture for clean modular design.", arch:"Controller – Service – Repository", github:"https://github.com/yashpatil1816" },
-  { num:"04", status:"2024", tag:"API INTEGRATION", title:"WeatherSphere", description:"Real-time weather data proxy service integrating OpenWeatherMap REST API — routing, transformation, and error handling.", tech:["Java","Spring Boot","REST API","OpenWeatherMap"], metrics:["Live API","Proxy"], detail:"Spring Boot service acting as a proxy to OpenWeatherMap REST API. Handles request routing, response transformation, error management, and JSON deserialization.", arch:"API Proxy + Transform", github:"https://github.com/yashpatil1816" },
-];
-
-const SKILLS = [
-  { name:"Java", level:90 }, { name:"Spring Boot / Spring Security", level:87 },
-  { name:"REST APIs & Architecture", level:85 }, { name:"Spring Data JPA / Hibernate", level:83 },
-  { name:"SQL & Database Design", level:80 }, { name:"Apache Kafka", level:75 },
-  { name:"Redis & Distributed Systems", level:72 }, { name:"LangChain4j / Spring AI", level:68 },
-  { name:"DSA & Problem Solving", level:80 },
-];
-
-const SKILL_CATS = [
-  { label:"LANGUAGES", items:["Java","JavaScript","SQL","Python"] },
-  { label:"FRAMEWORKS", items:["Spring Boot","Spring Security","Spring Data JPA","Hibernate"] },
-  { label:"INFRASTRUCTURE", items:["Apache Kafka","Redis","Docker","Jenkins","GitHub Actions"] },
-  { label:"DATABASES", items:["MySQL","H2","Redis Cache"] },
-  { label:"AI / ML", items:["LangChain4j","Spring AI","Generative AI"] },
-  { label:"TESTING", items:["JUnit","TestNG","Postman","API Testing"] },
-  { label:"CONCEPTS", items:["Microservices","REST APIs","CI/CD","Distributed Systems","Event-Driven","JWT & RBAC"] },
-];
-
-const CERTS = [
-  { icon:"🏅", label:"Oracle Cloud Infrastructure · 2025", title:"AI Foundations Associate" },
-  { icon:"📜", label:"Udemy · Feb 2026", title:"Spring, Spring Boot, MVC & Hibernate" },
-  { icon:"📜", label:"Code For Success · Oct 2025", title:"Java Full Stack Development" },
-];
-
-const NAV = [
-  {id:"home",label:"Home",num:"00"},{id:"about",label:"About",num:"01"},
-  {id:"skills",label:"Skills",num:"02"},{id:"projects",label:"Projects",num:"03"},
-  {id:"experience",label:"Experience",num:"04"},{id:"contact",label:"Contact",num:"05"},
-];
-
-const MARQUEE = ["Java","Spring Boot","Apache Kafka","Redis","Microservices","REST APIs","JWT & RBAC","LangChain4j","Spring AI","Distributed Systems","JPA / Hibernate","Spring Security","MySQL","Docker","CI/CD","Event-Driven","Java","Spring Boot","Apache Kafka","Redis","Microservices","REST APIs","JWT & RBAC","LangChain4j","Spring AI","Distributed Systems","JPA / Hibernate","Spring Security","MySQL","Docker","CI/CD","Event-Driven"];
-
-const SidebarContent = ({ active, scrollTo }) => (
-  <>
-    <div style={{ marginBottom: 28 }}>
-      <div style={{ width: 60, height: 60, borderRadius: "50%", overflow: "hidden", border: "2px solid var(--sb-border)", marginBottom: 14, animation: "float 4s ease-in-out infinite" }}>
-        <img src="/profile.jpg" alt="Yash Patil" style={{ width: "100%", height: "100%", objectFit: "cover", objectPosition: "center 8%" }} />
-      </div>
-      <div style={{ display: "flex", alignItems: "center", gap: 7, marginBottom: 7 }}>
-        <span style={{ width: 6, height: 6, borderRadius: "50%", background: "var(--green)", animation: "pulse 2.5s infinite", flexShrink: 0 }} />
-        <span style={{ fontFamily: "var(--mono)", fontSize: 9, color: "var(--green)", letterSpacing: "0.07em" }}>Available for opportunities</span>
-      </div>
-      <h1 style={{ fontFamily: "var(--serif)", fontSize: 28, fontWeight: 700, color: "var(--sb-text)", lineHeight: 1.05, marginBottom: 5 }}>
-        Yash<br /><span style={{ color: "var(--gold)", fontStyle: "italic", fontWeight: 400 }}>Patil</span>
-      </h1>
-      <p style={{ fontFamily: "var(--mono)", fontSize: 9, color: "var(--sb-muted)", letterSpacing: "0.1em", textTransform: "uppercase", marginTop: 4 }}>Java Backend Developer</p>
-    </div>
-    <div className="div-line" />
-    <p style={{ fontFamily: "var(--mono)", fontSize: 8, color: "var(--sb-muted)", letterSpacing: "0.16em", textTransform: "uppercase", marginBottom: 10, paddingLeft: 12 }}>Navigation</p>
-    {NAV.map(n => (
-      <button key={n.id} className={`nav-item ${active === n.id ? "active" : ""}`} onClick={() => scrollTo(n.id)}>
-        <span className="nav-num">{n.num}</span>
-        {n.label}
-        {active === n.id && <span style={{ marginLeft: "auto", width: 16, height: 1, background: "var(--gold)", display: "block" }} />}
-      </button>
-    ))}
-    <div className="div-line" />
-    <p style={{ fontFamily: "var(--mono)", fontSize: 8, color: "var(--sb-muted)", letterSpacing: "0.16em", textTransform: "uppercase", marginBottom: 10 }}>Links</p>
-    {[
-      { label:"GitHub — yashpatil1816", url:"https://github.com/yashpatil1816" },
-      { label:"LinkedIn", url:"https://www.linkedin.com/in/yash-patil-39941a326/" },
-      { label:"yashpatil2571@gmail.com", url:"mailto:yashpatil2571@gmail.com" },
-      { label:"LeetCode — 200+ solved", url:"https://leetcode.com" },
-    ].map((l, i) => (
-      <a key={i} href={l.url} target={l.url.startsWith("http") ? "_blank" : undefined} rel="noreferrer"
-        style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 11, color: "var(--sb-sub)", padding: "4px 2px", transition: "color 0.15s" }}
-        onMouseEnter={e => e.currentTarget.style.color = "var(--sb-text)"}
-        onMouseLeave={e => e.currentTarget.style.color = "var(--sb-sub)"}>
-        <span style={{ color: "var(--sb-muted)", fontSize: 10 }}>›</span> {l.label}
-      </a>
-    ))}
-    <div style={{ marginTop: "auto", paddingTop: 24 }}>
-      <a href="https://drive.google.com/file/d/1xboyFm7F2BcgQP7-cH7tG4eqwKYwUfRz/view?usp=drive_link" target="_blank" rel="noreferrer" className="btn-gold" style={{ width: "100%", justifyContent: "center" }}>
-        ↓ Download Resume
-      </a>
-    </div>
-  </>
-);
-
+/* ── APP ── */
 export default function App() {
-  const [active, setActive] = useState("home");
+  const [active, setActive] = useState('hero');
   const [modal, setModal] = useState(null);
-  const [mobileMenu, setMobileMenu] = useState(false);
-  const [form, setForm] = useState({ name: "", email: "", message: "" });
+  const [drawer, setDrawer] = useState(false);
+  const [form, setForm] = useState({ name:'', email:'', msg:'' });
+  const [formErr, setFormErr] = useState(false);
   const [sent, setSent] = useState(false);
-  const [formErr, setFormErr] = useState("");
-  const { scrollYProgress } = useScroll();
-  const scaleX = useSpring(scrollYProgress, { stiffness: 100, damping: 30 });
-
-  const scrollTo = id => { document.getElementById(id)?.scrollIntoView({ behavior: "smooth" }); setActive(id); setMobileMenu(false); };
 
   useEffect(() => {
-    const obs = new IntersectionObserver(entries => {
-      entries.forEach(e => { if (e.isIntersecting) setActive(e.target.id); });
-    }, { threshold: 0.25 });
-    NAV.forEach(n => { const el = document.getElementById(n.id); if (el) obs.observe(el); });
+    const fn = () => {
+      const el = document.documentElement;
+      const bar = document.getElementById('prog');
+      if (bar) bar.style.width = (el.scrollTop / (el.scrollHeight - el.clientHeight) * 100) + '%';
+      const SECS = ['hero','about','projects','experience','skills','contact'];
+      let cur = 'hero';
+      SECS.forEach(id => { const s = document.getElementById(id); if (s && s.getBoundingClientRect().top < 100) cur = id; });
+      setActive(cur);
+    };
+    window.addEventListener('scroll', fn);
+    return () => window.removeEventListener('scroll', fn);
+  }, []);
+
+  useEffect(() => {
+    const obs = new IntersectionObserver(entries => { entries.forEach(e => { if (e.isIntersecting) e.target.classList.add('in'); }); }, { threshold: 0.1 });
+    document.querySelectorAll('.reveal').forEach(el => obs.observe(el));
     return () => obs.disconnect();
   }, []);
 
-  const handleSubmit = () => {
-    if (!form.name || !form.email || !form.message) { setFormErr("Please fill in all fields."); return; }
-    setFormErr("");
-    const s = encodeURIComponent(`Portfolio Contact from ${form.name}`);
-    const b = encodeURIComponent(`Name: ${form.name}\nEmail: ${form.email}\n\n${form.message}`);
-    window.location.href = `mailto:yashpatil2571@gmail.com?subject=${s}&body=${b}`;
-    setSent(true); setForm({ name: "", email: "", message: "" });
+  useEffect(() => {
+    document.body.style.overflow = modal ? 'hidden' : '';
+  }, [modal]);
+
+  const goto = useCallback(id => { document.getElementById(id)?.scrollIntoView({ behavior:'smooth' }); setDrawer(false); }, []);
+
+  const sendMsg = () => {
+    if (!form.name || !form.email || !form.msg) { setFormErr(true); return; }
+    setFormErr(false);
+    window.location.href = `mailto:yashpatil2571@gmail.com?subject=${encodeURIComponent('Portfolio Contact from '+form.name)}&body=${encodeURIComponent('Name: '+form.name+'\nEmail: '+form.email+'\n\n'+form.msg)}`;
+    setSent(true);
   };
 
+  const mqDouble = [...MQ, ...MQ];
+  const SKILLS = [['Java',90],['Spring Boot / Spring Security',87],['REST APIs & Architecture',85],['JPA / Hibernate',83],['SQL & Database Design',80],['Apache Kafka',75],['Redis & Distributed Systems',72],['LangChain4j / Spring AI',68]];
+
   return (
-    <div style={{ background: "var(--sb)" }}>
+    <>
       <GlobalStyle />
+      <div id="prog" />
       <ParticleCanvas />
-      <motion.div style={{ position: "fixed", top: 0, left: 0, right: 0, height: 2, background: "var(--gold)", transformOrigin: "left", scaleX, zIndex: 1000 }} />
 
-      <div className="layout">
-        <aside className="sidebar"><SidebarContent active={active} scrollTo={scrollTo} /></aside>
+      {/* NAV */}
+      <nav className="nav">
+        <button className="nav-logo" onClick={() => goto('hero')}>YASH<span>.</span>PATIL</button>
+        <div className="nav-links">
+          {['about','skills','projects','experience','contact'].map(s => (
+            <button key={s} className={`nav-link ${active===s?'active':''}`} onClick={() => goto(s)}>{s}</button>
+          ))}
+        </div>
+        <a href="https://drive.google.com/file/d/1tCukQ_iXPsXJ4zZ4TLMAX3v9mG6p4zAI/view?usp=sharing" target="_blank" rel="noreferrer" className="nav-resume">↓ RESUME</a>
+        <button className="nav-ham" onClick={() => setDrawer(d => !d)} aria-label="Menu">
+          <div className="ham-l" style={{ transform: drawer?'rotate(45deg) translate(3.5px,3.5px)':'' }} />
+          <div className="ham-l" style={{ transform: drawer?'scaleX(0)':'' }} />
+          <div className="ham-l" style={{ transform: drawer?'rotate(-45deg) translate(3.5px,-3.5px)':'' }} />
+        </button>
+      </nav>
 
-        {/* MOBILE HEADER */}
-        <header className="mobile-header">
-          <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-            <div style={{ width: 32, height: 32, borderRadius: "50%", overflow: "hidden", border: "1.5px solid var(--sb-border)" }}>
-              <img src="/profile.jpg" alt="YP" style={{ width: "100%", height: "100%", objectFit: "cover", objectPosition: "center 8%" }} />
+      {/* MOBILE DRAWER */}
+      <div className={`mob-overlay ${drawer?'open':''}`} onClick={() => setDrawer(false)} />
+      <div className={`mob-drawer ${drawer?'open':''}`}>
+        {[['hero','00','Home'],['about','01','About'],['skills','02','Skills'],['projects','03','Projects'],['experience','04','Experience'],['contact','05','Contact']].map(([id,num,label]) => (
+          <button key={id} className="mob-link" onClick={() => goto(id)}><span className="mob-link-num">{num}</span>{label}</button>
+        ))}
+        <div style={{ marginTop:20, padding:'0 10px' }}>
+          <a href="https://drive.google.com/file/d/1tCukQ_iXPsXJ4zZ4TLMAX3v9mG6p4zAI/view?usp=sharing" target="_blank" rel="noreferrer" className="btn-primary" style={{ display:'block', textAlign:'center', padding:11, fontSize:11, letterSpacing:'0.06em', borderRadius:4 }}>↓ DOWNLOAD RESUME</a>
+        </div>
+      </div>
+
+      {/* MOBILE BOTTOM NAV */}
+      <nav className="mob-bottom-nav">
+        {[['hero','⌂','Home'],['about','◎','About'],['skills','◈','Skills'],['projects','◻','Work'],['contact','◉','Contact']].map(([id,icon,label]) => (
+          <button key={id} className={`mbn-btn ${active===id?'active':''}`} onClick={() => goto(id)}><span className="mbn-icon">{icon}</span>{label}</button>
+        ))}
+      </nav>
+
+      <main className="main">
+
+        {/* HERO */}
+        <section id="hero" className="hero">
+          <div className="hero-bg" />
+          <div className="hero-grid-lines" />
+          <div className="hero-content">
+            <div className="hero-tag"><span className="tag-dot" /><span className="tag-txt">Available · Pune, India · B.Tech IT 2027</span></div>
+            <div className="hero-name"><div>YASH</div><div><span className="blue">PATIL</span><span className="dim">.</span></div></div>
+            <div className="hero-sub-row">
+              <span className="hero-role">Java Backend Developer</span>
+              <div className="hero-line" />
+              <span className="hero-role"><Typewriter /></span>
+            </div>
+            <p className="hero-desc">Building <strong>distributed systems</strong> that scale — from <strong>5K+ concurrent</strong> ticket bookings to <strong>sub-100ms fraud detection</strong> with Agentic AI. I engineer backends that are fast, fault-tolerant, and production-ready.</p>
+            <div className="hero-actions">
+              <button className="btn-primary" onClick={() => goto('projects')}>View Projects</button>
+              <button className="btn-ghost" onClick={() => goto('contact')}>Let's Connect</button>
+              <div className="scroll-hint"><div className="scroll-line" /><span className="scroll-txt">SCROLL</span></div>
+            </div>
+          </div>
+        </section>
+
+        {/* STATS */}
+        <div className="stats-bar reveal">
+          {[['200+','DSA Solved'],['8.18','CGPA'],['5K+','Concurrent Users'],['2027','Graduating']].map(([n,l]) => (
+            <div key={l} className="stat"><div className="stat-n">{n}</div><div className="stat-l">{l}</div></div>
+          ))}
+        </div>
+
+        {/* MARQUEE */}
+        <div className="mq-wrap">
+          <div className="mq-track">
+            {mqDouble.map((item,i) => <span key={i} className={`mq-item${MQ_HL.has(item)?' hl':''}`}>{item}</span>)}
+          </div>
+        </div>
+
+        {/* ABOUT */}
+        <section id="about" className="section reveal">
+          <div className="sec-header"><span className="sec-num">01 —</span><span className="sec-lbl">About</span></div>
+          <h2 className="sec-title">Backends Built<br/>for Production</h2>
+          <div className="about-grid">
+            <div>
+              <p className="about-txt">I'm a <strong>Java Backend Developer</strong> pursuing B.Tech in Information Technology at G.H. Raisoni College of Engineering, Pune. My work sits at the intersection of distributed systems, event-driven architecture, and applied AI.</p>
+              <p className="about-txt">Whether it's preventing race conditions with <strong>Redis distributed locking</strong>, routing transactions through a <strong>Kafka pipeline</strong>, or deploying a <strong>LangChain4j agentic loop</strong> for intelligent fraud detection — I design for scale and resilience.</p>
+              <div style={{ marginTop:12, display:'flex', flexWrap:'wrap', gap:4 }}>
+                {['OOP','REST','Microservices','JWT','Spring Security','Kafka','Redis','DSA','Docker','CI/CD'].map(t => <span key={t} className="cpill">{t}</span>)}
+              </div>
             </div>
             <div>
-              <span style={{ fontFamily: "var(--serif)", fontSize: 15, color: "var(--sb-text)", fontWeight: 700 }}>Yash Patil</span>
-              <div style={{ display: "flex", alignItems: "center", gap: 5 }}>
-                <span style={{ width: 5, height: 5, borderRadius: "50%", background: "var(--green)", display: "inline-block", animation: "pulse 2.5s infinite" }} />
-                <span style={{ fontFamily: "var(--mono)", fontSize: 8, color: "var(--green)" }}>Available</span>
-              </div>
-            </div>
-          </div>
-          <div style={{ display: "flex", gap: 10, alignItems: "center" }}>
-            <a href="https://drive.google.com/file/d/1xboyFm7F2BcgQP7-cH7tG4eqwKYwUfRz/view?usp=drive_link" target="_blank" rel="noreferrer" className="btn-gold" style={{ fontSize: 11, padding: "7px 12px" }}>Resume</a>
-            <button onClick={() => setMobileMenu(m => !m)} style={{ background: "none", border: "1px solid var(--sb-border)", borderRadius: 6, padding: "7px 9px", cursor: "pointer", display: "flex", flexDirection: "column", gap: 4 }}>
-              {[0,1,2].map(i => <div key={i} style={{ width: 17, height: 1.5, background: "var(--sb-text)", borderRadius: 1, transition: "all 0.2s", transform: mobileMenu ? (i===0?"rotate(45deg) translate(3.5px,3.5px)":i===2?"rotate(-45deg) translate(3.5px,-3.5px)":"scaleX(0)"):"none" }} />)}
-            </button>
-          </div>
-        </header>
-
-        <AnimatePresence>
-          {mobileMenu && (
-            <>
-              <motion.div className="mob-overlay" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} onClick={() => setMobileMenu(false)} />
-              <div className="mob-menu-panel"><SidebarContent active={active} scrollTo={scrollTo} /></div>
-            </>
-          )}
-        </AnimatePresence>
-
-        <nav className="mob-bottom-nav">
-          {NAV.map(n => (
-            <button key={n.id} className={`mob-btn ${active === n.id ? "active" : ""}`} onClick={() => scrollTo(n.id)}>
-              <span style={{ fontSize: 14 }}>{n.num==="00"?"⌂":n.num==="01"?"◎":n.num==="02"?"◈":n.num==="03"?"◻":n.num==="04"?"◆":"◉"}</span>
-              {n.label}
-            </button>
-          ))}
-        </nav>
-
-        <main className="content">
-
-          {/* ── HERO ── */}
-          <ParallaxSection id="home" style={{ background: "#f8f5f0", minHeight: "100vh", display: "flex", alignItems: "center", paddingTop: "clamp(80px,12vw,120px)" }}>
-            <div className="hero-grid" style={{ display: "grid", gridTemplateColumns: "1fr 260px", gap: 48, alignItems: "start", width: "100%" }}>
-              <motion.div initial={{ opacity: 0, y: 24 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.7 }}>
-                <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.1 }}
-                  style={{ display: "inline-flex", alignItems: "center", gap: 8, marginBottom: 24, padding: "5px 12px", background: "rgba(45,122,79,0.08)", border: "1px solid rgba(45,122,79,0.2)", borderRadius: 20 }}>
-                  <span style={{ width: 6, height: 6, borderRadius: "50%", background: "var(--green)", display: "inline-block", animation: "pulse 2.5s infinite" }} />
-                  <span style={{ fontFamily: "var(--mono)", fontSize: 10, color: "var(--green)", letterSpacing: "0.06em" }}>Open to opportunities</span>
-                </motion.div>
-                <h1 style={{ fontFamily: "var(--serif)", fontSize: "clamp(46px,7vw,80px)", fontWeight: 700, color: "var(--ct-text)", lineHeight: 1.0, letterSpacing: "-2px", marginBottom: 16 }}>
-                  Backend<br /><em style={{ color: "var(--gold)", fontWeight: 400 }}>Engineer.</em><br />Problem<br />Solver.
-                </h1>
-                <div style={{ fontFamily: "var(--mono)", fontSize: 13, color: "var(--ct-sub)", marginBottom: 24, minHeight: 22 }}>
-                  <Typewriter words={["Java Backend Developer","Spring Boot Engineer","Distributed Systems","Agentic AI Builder","REST API Specialist"]} />
-                </div>
-                <p style={{ fontSize: 15, color: "var(--ct-sub)", lineHeight: 1.9, maxWidth: 500, marginBottom: 36 }}>
-                  I build <strong style={{ color: "var(--ct-text)", fontWeight: 600 }}>distributed systems</strong> that scale — from <strong style={{ color: "var(--ct-text)", fontWeight: 600 }}>5K+ concurrent</strong> ticket bookings to <strong style={{ color: "var(--ct-text)", fontWeight: 600 }}>sub-100ms fraud detection</strong> with Agentic AI.
-                </p>
-                <div style={{ display: "flex", gap: 12, flexWrap: "wrap", marginBottom: 40 }}>
-                  <button onClick={() => scrollTo("projects")} className="btn-dark">View Projects →</button>
-                  <button onClick={() => scrollTo("contact")} className="btn-outline">Let's Connect</button>
-                </div>
-                <div className="stats-grid" style={{ display: "grid", gridTemplateColumns: "repeat(3,1fr)", maxWidth: 380, border: "1px solid var(--ct-line)", borderRadius: 10, overflow: "hidden" }}>
-                  {[{ n:"200+", l:"DSA Problems" }, { n:"8.18", l:"CGPA" }, { n:"2027", l:"Graduating" }].map((s, i) => (
-                    <div key={i} style={{ background: "var(--ct-card)", padding: "16px 10px", textAlign: "center", borderRight: i < 2 ? "1px solid var(--ct-line)" : "none" }}>
-                      <div style={{ fontFamily: "var(--serif)", fontSize: "clamp(20px,2.5vw,26px)", fontWeight: 700, color: "var(--ct-text)" }}>{s.n}</div>
-                      <div style={{ fontFamily: "var(--mono)", fontSize: 9, color: "var(--ct-muted)", letterSpacing: "0.1em", marginTop: 4, textTransform: "uppercase" }}>{s.l}</div>
-                    </div>
-                  ))}
-                </div>
-              </motion.div>
-
-              <motion.div initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} transition={{ delay: 0.3, duration: 0.6 }}
-                style={{ display: "flex", flexDirection: "column", gap: 10 }}>
-                <div style={{ background: "var(--ct-card)", border: "1px solid var(--ct-line)", borderRadius: 10, overflow: "hidden" }}>
-                  <div style={{ padding: "10px 14px", background: "#faf8f4", borderBottom: "1px solid var(--ct-line)" }}>
-                    <p style={{ fontFamily: "var(--mono)", fontSize: 9, color: "var(--ct-muted)", textTransform: "uppercase", letterSpacing: "0.12em" }}>Quick Info</p>
-                  </div>
-                  {[{ k:"Role", v:"Java Backend Dev" }, { k:"Location", v:"Pune, India" }, { k:"Education", v:"B.Tech IT, 2027" }, { k:"Status", v:"Open to Work ✓", green:true }].map((r, i) => (
-                    <div key={i} style={{ display: "flex", padding: "9px 14px", borderBottom: i < 3 ? "1px solid #f5f1eb" : "none", background: i % 2 === 0 ? "var(--ct-card)" : "#faf8f4", gap: 10, alignItems: "center" }}>
-                      <span style={{ fontFamily: "var(--mono)", fontSize: 9, color: "var(--ct-muted)", width: 64, flexShrink: 0, textTransform: "uppercase", letterSpacing: "0.06em" }}>{r.k}</span>
-                      <span style={{ fontSize: 12, color: r.green ? "var(--green)" : "var(--ct-sub)", fontWeight: r.green ? 500 : 400 }}>{r.v}</span>
-                    </div>
-                  ))}
-                </div>
-                <div style={{ background: "var(--ct-card)", border: "1px solid var(--ct-line)", borderRadius: 10, padding: "14px" }}>
-                  <p style={{ fontFamily: "var(--mono)", fontSize: 9, color: "var(--ct-muted)", textTransform: "uppercase", letterSpacing: "0.12em", marginBottom: 12 }}>Certifications</p>
-                  {CERTS.map((c, i) => (
-                    <div key={i} style={{ display: "flex", gap: 10, alignItems: "center", padding: "8px 0", borderBottom: i < CERTS.length - 1 ? "1px solid #f5f1eb" : "none" }}>
-                      <span style={{ fontSize: 16, flexShrink: 0 }}>{c.icon}</span>
-                      <div>
-                        <p style={{ fontFamily: "var(--mono)", fontSize: 8, color: "var(--ct-muted)", letterSpacing: "0.08em", marginBottom: 2 }}>{c.label}</p>
-                        <p style={{ fontSize: 11, color: "var(--ct-sub)", lineHeight: 1.4 }}>{c.title}</p>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-                <div style={{ display: "flex", gap: 8, justifyContent: "center" }}>
-                  {[{ icon:GH, url:"https://github.com/yashpatil1816" }, { icon:LI, url:"https://www.linkedin.com/in/yash-patil-39941a326/" }, { icon:EM, url:"mailto:yashpatil2571@gmail.com" }].map((c, i) => (
-                    <a key={i} href={c.url} target={c.url.startsWith("http") ? "_blank" : undefined} rel="noreferrer"
-                      style={{ width: 36, height: 36, borderRadius: "50%", border: "1px solid var(--ct-line)", background: "var(--ct-card)", display: "flex", alignItems: "center", justifyContent: "center", color: "var(--ct-sub)", transition: "all 0.18s" }}
-                      onMouseEnter={e => { e.currentTarget.style.borderColor = "var(--gold)"; e.currentTarget.style.color = "var(--gold)"; e.currentTarget.style.transform = "translateY(-2px)"; }}
-                      onMouseLeave={e => { e.currentTarget.style.borderColor = "var(--ct-line)"; e.currentTarget.style.color = "var(--ct-sub)"; e.currentTarget.style.transform = "none"; }}>
-                      {c.icon}
-                    </a>
-                  ))}
-                </div>
-              </motion.div>
-            </div>
-          </ParallaxSection>
-
-          {/* MARQUEE */}
-          <div className="marquee-wrap">
-            <div className="marquee-track">
-              {MARQUEE.map((item, i) => <span key={i} className={i % 5 === 0 ? "acc" : ""}>{item} &nbsp;·&nbsp; </span>)}
-            </div>
-          </div>
-
-          {/* ── ABOUT ── */}
-          <ParallaxSection id="about" style={{ background: "#faf8f4" }}>
-            <SH num="01" label="About" title={<>Backends Built<br />for Production</>} />
-            <div className="about-grid" style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 56, alignItems: "start" }}>
-              <div>
-                <p style={{ fontSize: 15, color: "var(--ct-sub)", lineHeight: 1.95, marginBottom: 16 }}>
-                  I'm a <strong style={{ color: "var(--ct-text)" }}>Java Backend Developer</strong> pursuing B.Tech in Information Technology at G.H. Raisoni College of Engineering, Pune. My work sits at the intersection of distributed systems, event-driven architecture, and applied AI.
-                </p>
-                <p style={{ fontSize: 15, color: "var(--ct-sub)", lineHeight: 1.95, marginBottom: 28 }}>
-                  Whether it's preventing race conditions with <strong style={{ color: "var(--ct-text)" }}>Redis distributed locking</strong>, routing transactions through a <strong style={{ color: "var(--ct-text)" }}>Kafka pipeline</strong>, or deploying a <strong style={{ color: "var(--ct-text)" }}>LangChain4j agentic loop</strong> for intelligent fraud detection — I design for scale and resilience.
-                </p>
-                <div style={{ display: "flex", flexWrap: "wrap", gap: 7 }}>
-                  {["OOP","REST","Microservices","JWT","Spring Security","DSA","JPA","Kafka","Redis","LangChain4j","Docker","CI/CD"].map(t => <span key={t} className="tag">{t}</span>)}
-                </div>
-              </div>
-              <div>
-                <div style={{ background: "var(--ct-card)", border: "1px solid var(--ct-line)", borderRadius: 10, overflow: "hidden", marginBottom: 16 }}>
-                  <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr" }}>
-                    {[{ label:"DEGREE", value:"B.Tech — IT" }, { label:"UNIVERSITY", value:"G.H. Raisoni, Pune" }, { label:"CGPA", value:"8.18 / 10" }, { label:"GRADUATING", value:"Expected 2027" }].map((r, i) => (
-                      <div key={i} style={{ padding: "18px", borderRight: i % 2 === 0 ? "1px solid var(--ct-line)" : "none", borderBottom: i < 2 ? "1px solid var(--ct-line)" : "none", background: i % 2 === 0 ? "var(--ct-card)" : "#faf8f4" }}>
-                        <p style={{ fontFamily: "var(--mono)", fontSize: 8, color: "var(--ct-muted)", textTransform: "uppercase", letterSpacing: "0.12em", marginBottom: 7 }}>{r.label}</p>
-                        <p style={{ fontFamily: "var(--serif)", fontSize: 14, color: "var(--ct-text)", fontWeight: 700, lineHeight: 1.3 }}>{r.value}</p>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-                <p style={{ fontFamily: "var(--mono)", fontSize: 9, color: "var(--ct-muted)", textTransform: "uppercase", letterSpacing: "0.12em", marginBottom: 10 }}>Certifications</p>
-                {CERTS.map((c, i) => (
-                  <div key={i} style={{ display: "flex", gap: 12, alignItems: "center", padding: "12px 14px", background: "var(--ct-card)", border: "1px solid var(--ct-line)", borderRadius: 8, marginBottom: 8 }}>
-                    <span style={{ fontSize: 18, flexShrink: 0 }}>{c.icon}</span>
-                    <div>
-                      <p style={{ fontFamily: "var(--mono)", fontSize: 8, color: "var(--ct-muted)", letterSpacing: "0.08em", marginBottom: 3 }}>{c.label}</p>
-                      <p style={{ fontSize: 12, color: "var(--ct-sub)" }}>{c.title}</p>
-                    </div>
-                  </div>
+              <div className="info-table">
+                {[['Role','Java Backend Developer'],['Location','Pune, India'],['Degree','B.Tech IT — G.H. Raisoni'],['CGPA','8.18 / 10'],['Grad','Expected 2027'],['Status','Open to Work ✓',true]].map(([k,v,g]) => (
+                  <div key={k} className="info-row"><span className="info-k">{k}</span><span className={`info-v${g?' green':''}`}>{v}</span></div>
                 ))}
               </div>
+              {[['🏅','Oracle Cloud AI Foundations','Oracle Cloud Infrastructure · 2025'],['📜','Spring Boot, MVC & Hibernate','Udemy · Feb 2026'],['📜','Java Full Stack Development','Code For Success · Oct 2025']].map(([ico,name,org]) => (
+                <div key={name} className="cert-item"><div className="cert-icon">{ico}</div><div><div className="cert-name">{name}</div><div className="cert-org">{org}</div></div></div>
+              ))}
             </div>
-          </ParallaxSection>
+          </div>
+        </section>
 
-          {/* ── SKILLS ── */}
-          <ParallaxSection id="skills" style={{ background: "#f8f5f0" }}>
-            <SH num="02" label="Skills" title="Tech Stack" />
-            <div className="skills-grid" style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 56 }}>
-              <div>
-                <p style={{ fontFamily: "var(--mono)", fontSize: 9, color: "var(--ct-muted)", letterSpacing: "0.14em", textTransform: "uppercase", marginBottom: 20 }}>Categories</p>
-                {SKILL_CATS.map((cat, ci) => (
-                  <div key={ci} style={{ marginBottom: 14, display: "flex", gap: 14, alignItems: "flex-start" }}>
-                    <span style={{ fontFamily: "var(--mono)", fontSize: 8, color: "var(--gold)", textTransform: "uppercase", letterSpacing: "0.1em", width: 88, flexShrink: 0, paddingTop: 3 }}>{cat.label}</span>
-                    <div style={{ display: "flex", flexWrap: "wrap", gap: 5 }}>
-                      {cat.items.map(item => <span key={item} className="tag" style={{ fontSize: 11 }}>{item}</span>)}
-                    </div>
-                  </div>
-                ))}
+        {/* PROJECTS */}
+        <section id="projects" className="section reveal">
+          <div className="sec-header"><span className="sec-num">03 —</span><span className="sec-lbl">Projects</span></div>
+          <h2 className="sec-title">Selected Work</h2>
+          <div className="proj-list">
+            {[
+              ['01','TicketFlow','DISTRIBUTED SYSTEMS',['5K users','·','<200ms'],true],
+              ['02','Transaction Insight Engine','AGENTIC AI',['<100ms','·','85% routed'],false],
+              ['03','J.P. Morgan SWE','VIRTUAL · FORAGE',['Jan 2025'],false],
+              ['04','WeatherSphere','API INTEGRATION',['Live API'],false],
+            ].map(([num,title,tag,metrics,hl]) => (
+              <div key={title} className={`proj-row${hl?' pr-highlight':''}`} onClick={() => setModal(title)}>
+                <span className="pr-num">{num}</span>
+                <span className="pr-title">{title}</span>
+                <span className="pr-tag">{tag}</span>
+                <div className="pr-metrics">{metrics.map((m,i) => <span key={i} className="pr-metric">{m}</span>)}</div>
+                <span className="pr-arrow">→</span>
               </div>
-              <div>
-                <p style={{ fontFamily: "var(--mono)", fontSize: 9, color: "var(--ct-muted)", letterSpacing: "0.14em", textTransform: "uppercase", marginBottom: 20 }}>Proficiency</p>
-                {SKILLS.map((s, i) => <SkillBar key={s.name} {...s} delay={i * 80} />)}
-              </div>
-            </div>
-          </ParallaxSection>
-
-          {/* ── PROJECTS ── */}
-          <ParallaxSection id="projects" style={{ background: "#ffffff" }}>
-            <SH num="03" label="Projects" title="Selected Work" />
-            {PROJECTS.map((p, i) => (
-              <motion.div key={p.title} initial={{ opacity: 0, y: 18 }} whileInView={{ opacity: 1, y: 0 }} viewport={{ once: true }} transition={{ delay: i * 0.08 }}>
-                <TiltCard onClick={() => setModal(p)} highlight={p.highlight}>
-                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 12 }}>
-                    <span style={{ fontFamily: "var(--mono)", fontSize: 10, color: "var(--ct-muted)" }}>{p.num} · {p.status}</span>
-                    <span className="tag" style={{ fontSize: 9 }}>{p.tag}</span>
-                  </div>
-                  <h3 style={{ fontFamily: "var(--serif)", fontSize: "clamp(18px,2.5vw,24px)", fontWeight: 700, color: "var(--ct-text)", marginBottom: 10, lineHeight: 1.2 }}>{p.title}</h3>
-                  <p style={{ fontSize: 13, color: "var(--ct-sub)", lineHeight: 1.8, marginBottom: 16 }}>{p.description}</p>
-                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: 8 }}>
-                    <div style={{ display: "flex", flexWrap: "wrap", gap: 5 }}>
-                      {p.tech.map(t => <span key={t} className="tag" style={{ fontSize: 9 }}>{t}</span>)}
-                    </div>
-                    <div style={{ display: "flex", gap: 6, alignItems: "center" }}>
-                      {p.metrics.map((m, mi) => (
-                        <span key={mi} style={{ fontFamily: "var(--mono)", fontSize: 9, color: "var(--gold)", background: "rgba(200,169,110,0.08)", border: "1px solid rgba(200,169,110,0.2)", borderRadius: 3, padding: "2px 7px" }}>{m}</span>
-                      ))}
-                      <span style={{ fontSize: 12, color: "var(--gold)", fontWeight: 500 }}>Details →</span>
-                    </div>
-                  </div>
-                </TiltCard>
-              </motion.div>
             ))}
-          </ParallaxSection>
+          </div>
+        </section>
 
-          {/* ── EXPERIENCE ── */}
-          <ParallaxSection id="experience" style={{ background: "#faf8f4" }}>
-            <SH num="04" label="Experience" title={<>Professional<br />Experience</>} />
-            <motion.div className="exp-card" initial={{ opacity: 0, y: 14 }} whileInView={{ opacity: 1, y: 0 }} viewport={{ once: true }}>
-              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 16, flexWrap: "wrap", gap: 10 }}>
-                <div>
-                  <h3 style={{ fontFamily: "var(--serif)", fontSize: 22, fontWeight: 700, color: "var(--ct-text)", marginBottom: 4 }}>J.P. Morgan Chase & Co.</h3>
-                  <p style={{ fontSize: 14, color: "var(--ct-sub)", fontWeight: 500 }}>Software Engineering Virtual Experience</p>
-                  <p style={{ fontFamily: "var(--mono)", fontSize: 9, color: "var(--ct-muted)", marginTop: 3 }}>Forage (Virtual Program)</p>
-                </div>
-                <span className="tag" style={{ padding: "5px 10px", fontSize: 11 }}>Jan 2025</span>
-              </div>
-              <ul style={{ listStyle: "none", marginBottom: 18 }}>
-                {["Developed backend services using Java and Spring Boot, handling REST APIs and improving response efficiency.",
-                  "Integrated Apache Kafka for asynchronous communication, improving scalability and service decoupling.",
-                  "Modeled relational entities using Spring Data JPA and persisted data in H2 database.",
-                  "Applied layered architecture (Controller–Service–Repository) for clean and modular design.",
-                ].map((b, bi) => (
-                  <li key={bi} style={{ display: "flex", gap: 10, fontSize: 13, color: "var(--ct-sub)", lineHeight: 1.8, marginBottom: 6 }}>
-                    <span style={{ color: "var(--gold)", flexShrink: 0, marginTop: 1 }}>—</span>{b}
-                  </li>
-                ))}
-              </ul>
-              <div style={{ display: "flex", flexWrap: "wrap", gap: 5 }}>
-                {["Java","Spring Boot","Apache Kafka","JPA","H2"].map(t => <span key={t} className="tag">{t}</span>)}
-              </div>
-            </motion.div>
-            <div style={{ marginTop: 16, padding: "14px 18px", background: "rgba(45,122,79,0.06)", border: "1px solid rgba(45,122,79,0.18)", borderRadius: 8, display: "flex", alignItems: "center", gap: 10 }}>
-              <span style={{ width: 7, height: 7, borderRadius: "50%", background: "var(--green)", animation: "pulse 2.5s infinite", flexShrink: 0 }} />
-              <p style={{ fontSize: 13, color: "var(--ct-sub)" }}>Currently available — open to Java Backend, SWE & Internship roles.</p>
-            </div>
-          </ParallaxSection>
-
-          {/* ── CONTACT ── */}
-          <ParallaxSection id="contact" style={{ background: "#f8f5f0" }}>
-            <div style={{ marginBottom: 44 }}>
-              <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 10 }}>
-                <span style={{ fontFamily: "var(--mono)", fontSize: 10, color: "var(--gold)" }}>05 —</span>
-                <span style={{ fontFamily: "var(--mono)", fontSize: 9, color: "var(--ct-muted)", letterSpacing: "0.16em", textTransform: "uppercase" }}>Contact</span>
-              </div>
-              <h2 style={{ fontFamily: "var(--serif)", fontSize: "clamp(28px,4vw,46px)", fontWeight: 700, color: "var(--ct-text)", lineHeight: 1.1, marginBottom: 10 }}>
-                Let's build<br /><em style={{ color: "var(--gold)", fontWeight: 400 }}>something great.</em>
-              </h2>
-              <p style={{ fontFamily: "var(--mono)", fontSize: 11, color: "var(--ct-muted)", marginTop: 8 }}>Every message hits my inbox. I respond within a day.</p>
-            </div>
-            <div className="contact-grid" style={{ display: "grid", gridTemplateColumns: "1fr 1.3fr", gap: 48 }}>
+        {/* EXPERIENCE */}
+        <section id="experience" className="section reveal">
+          <div className="sec-header"><span className="sec-num">04 —</span><span className="sec-lbl">Experience</span></div>
+          <h2 className="sec-title">Professional Experience</h2>
+          <div className="exp-card">
+            <div className="exp-top">
               <div>
-                {[
-                  { label:"GITHUB", handle:"yashpatil1816", url:"https://github.com/yashpatil1816", icon:GH },
-                  { label:"LINKEDIN", handle:"yash-patil-39941a326", url:"https://www.linkedin.com/in/yash-patil-39941a326/", icon:LI },
-                  { label:"EMAIL", handle:"yashpatil2571@gmail.com", url:"mailto:yashpatil2571@gmail.com", icon:EM },
-                  { label:"PHONE", handle:"+91 9022046356", url:"tel:+919022046356", icon:PH },
-                ].map((c, i) => (
-                  <motion.a key={i} href={c.url} target={c.url.startsWith("http") ? "_blank" : undefined} rel="noreferrer"
-                    className="contact-link"
-                    initial={{ opacity: 0, x: -10 }} whileInView={{ opacity: 1, x: 0 }} viewport={{ once: true }} transition={{ delay: i * 0.07 }}>
-                    <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
-                      <div style={{ width: 34, height: 34, borderRadius: 8, background: "var(--ct-bg)", border: "1px solid var(--ct-line)", display: "flex", alignItems: "center", justifyContent: "center", color: "var(--ct-sub)", flexShrink: 0 }}>{c.icon}</div>
-                      <div>
-                        <p style={{ fontFamily: "var(--mono)", fontSize: 9, color: "var(--ct-muted)", textTransform: "uppercase", letterSpacing: "0.1em", marginBottom: 2 }}>{c.label}</p>
-                        <p style={{ fontSize: 12, color: "var(--ct-text)", fontWeight: 500 }}>{c.handle}</p>
-                      </div>
-                    </div>
-                    <span style={{ color: "var(--ct-muted)", flexShrink: 0 }}>{ARR}</span>
-                  </motion.a>
-                ))}
+                <div className="exp-company">J.P. Morgan Chase & Co.</div>
+                <div className="exp-role-txt">Software Engineering Virtual Experience</div>
+                <div className="exp-org">Forage (Virtual Program)</div>
               </div>
-              <div style={{ background: "var(--ct-card)", border: "1px solid var(--ct-line)", borderRadius: 10, padding: "28px 24px" }}>
-                <p style={{ fontFamily: "var(--mono)", fontSize: 9, color: "var(--ct-muted)", textTransform: "uppercase", letterSpacing: "0.12em", marginBottom: 20 }}>Send a message</p>
-                {sent ? (
-                  <div style={{ textAlign: "center", padding: "36px 0" }}>
-                    <p style={{ fontSize: 32, marginBottom: 12 }}>✉️</p>
-                    <p style={{ fontFamily: "var(--serif)", fontSize: 22, fontWeight: 700, color: "var(--ct-text)", marginBottom: 8 }}>Message sent!</p>
-                    <p style={{ fontSize: 13, color: "var(--ct-sub)" }}>Thanks for reaching out. I'll get back to you soon.</p>
-                    <button onClick={() => setSent(false)} className="btn-outline" style={{ marginTop: 20 }}>Send another</button>
-                  </div>
-                ) : (
-                  <>
-                    <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12, marginBottom: 12 }}>
-                      {["name","email"].map(field => (
-                        <div key={field}>
-                          <label style={{ fontFamily: "var(--mono)", fontSize: 9, color: "var(--ct-muted)", display: "block", marginBottom: 5, textTransform: "uppercase", letterSpacing: "0.1em" }}>{field}</label>
-                          <input type={field === "email" ? "email" : "text"} placeholder={field === "name" ? "Your name" : "your@email.com"} value={form[field]} onChange={e => setForm(f => ({ ...f, [field]: e.target.value }))} className="field" />
-                        </div>
-                      ))}
-                    </div>
-                    <div style={{ marginBottom: 16 }}>
-                      <label style={{ fontFamily: "var(--mono)", fontSize: 9, color: "var(--ct-muted)", display: "block", marginBottom: 5, textTransform: "uppercase", letterSpacing: "0.1em" }}>Message</label>
-                      <textarea placeholder="What's on your mind?" rows={5} value={form.message} onChange={e => setForm(f => ({ ...f, message: e.target.value }))} className="field" style={{ resize: "vertical" }} />
-                    </div>
-                    {formErr && <p style={{ fontSize: 12, color: "#dc2626", marginBottom: 10 }}>{formErr}</p>}
-                    <button onClick={handleSubmit} className="btn-dark" style={{ width: "100%", justifyContent: "center" }}>Send Message →</button>
-                  </>
-                )}
-              </div>
+              <span className="exp-date">JAN 2025</span>
             </div>
-          </ParallaxSection>
+            <ul className="exp-bullets">
+              {['Developed backend services using Java and Spring Boot, handling REST APIs and improving response efficiency.',
+                'Integrated Apache Kafka for asynchronous communication, improving scalability and service decoupling.',
+                'Modeled relational entities using Spring Data JPA and persisted data in H2 database.',
+                'Applied layered architecture (Controller–Service–Repository) for clean and modular design.'].map((b,i) => <li key={i}>{b}</li>)}
+            </ul>
+            <div className="exp-techs">
+              {['Java','Spring Boot','Apache Kafka','JPA','H2'].map(t => <span key={t} className="etag">{t}</span>)}
+            </div>
+          </div>
+          <div className="avail-banner">
+            <span className="avail-dot" />
+            <span style={{ fontSize:12, color:'rgba(255,255,255,0.4)' }}>Currently available — open to Java Backend, SWE & Internship roles.</span>
+          </div>
+        </section>
 
-          {/* FOOTER */}
-          <footer style={{ padding: "22px 60px", borderTop: "1px solid var(--ct-line)", background: "var(--ct-card)", display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: 12 }}>
-            <span style={{ fontFamily: "var(--serif)", fontSize: 13, color: "var(--ct-muted)", fontStyle: "italic" }}>Yash Patil · © 2026</span>
-            <span style={{ fontFamily: "var(--mono)", fontSize: 10, color: "var(--ct-muted)", letterSpacing: "0.08em" }}>Java Backend Developer · Built with React</span>
-            <div style={{ display: "flex", gap: 14 }}>
-              {[{ icon:GH, url:"https://github.com/yashpatil1816" }, { icon:LI, url:"https://www.linkedin.com/in/yash-patil-39941a326/" }, { icon:EM, url:"mailto:yashpatil2571@gmail.com" }].map((c, i) => (
-                <a key={i} href={c.url} target={c.url.startsWith("http") ? "_blank" : undefined} rel="noreferrer"
-                  style={{ color: "var(--ct-muted)", transition: "color 0.15s" }}
-                  onMouseEnter={e => e.currentTarget.style.color = "var(--gold)"}
-                  onMouseLeave={e => e.currentTarget.style.color = "var(--ct-muted)"}>
-                  {c.icon}
+        {/* SKILLS */}
+        <section id="skills" className="section reveal">
+          <div className="sec-header"><span className="sec-num">02 —</span><span className="sec-lbl">Skills</span></div>
+          <h2 className="sec-title">Tech Stack</h2>
+          <div className="skills-inner">
+            <div>
+              {[['Languages',['Java','JavaScript','SQL','Python']],['Frameworks',['Spring Boot','Spring Security','JPA','Hibernate']],['Infra',['Kafka','Redis','Docker','Jenkins','GitHub Actions']],['Databases',['MySQL','H2','Redis Cache']],['AI / ML',['LangChain4j','Spring AI','Gen AI']],['Testing',['JUnit','TestNG','Postman']],['Concepts',['Microservices','REST APIs','CI/CD','JWT & RBAC','Event-Driven']]].map(([lbl,items]) => (
+                <div key={lbl} className="cat-row"><span className="cat-lbl">{lbl}</span><div className="cat-pills">{items.map(i => <span key={i} className="cpill">{i}</span>)}</div></div>
+              ))}
+            </div>
+            <div>
+              {SKILLS.map(([name,pct],i) => <SkillBar key={name} name={name} pct={pct} delay={i*80} />)}
+            </div>
+          </div>
+        </section>
+
+        {/* CONTACT */}
+        <section id="contact" className="section reveal">
+          <div className="sec-header"><span className="sec-num">05 —</span><span className="sec-lbl">Contact</span></div>
+          <h2 className="sec-title">Let's Build Something <span style={{ color:'#3b82f6' }}>Great.</span></h2>
+          <div className="contact-grid">
+            <div className="clinks">
+              {[['GH','GitHub','yashpatil1816','https://github.com/yashpatil1816'],['LI','LinkedIn','yash-patil-39941a326','https://www.linkedin.com/in/yash-patil-39941a326/'],['@','Email','yashpatil2571@gmail.com','mailto:yashpatil2571@gmail.com'],['☎','Phone','+91 9022046356','tel:+919022046356'],['LC','LeetCode','200+ Problems Solved','https://leetcode.com']].map(([ico,lbl,val,url]) => (
+                <a key={lbl} href={url} target={url.startsWith('http')?'_blank':undefined} rel="noreferrer" className="clink">
+                  <div className="clink-l"><div className="clink-ico" style={ico==='LC'?{fontSize:10}:{}}>{ico}</div><div><div className="clink-lbl">{lbl}</div><div className="clink-val">{val}</div></div></div>
+                  <span className="clink-arr">↗</span>
                 </a>
               ))}
             </div>
-          </footer>
-        </main>
-      </div>
+            <div className="form-box">
+              <div style={{ fontFamily:"'DM Mono',monospace", fontSize:9, color:'rgba(255,255,255,0.22)', textTransform:'uppercase', letterSpacing:'0.12em', marginBottom:16 }}>Send a message</div>
+              {sent ? (
+                <div style={{ textAlign:'center', padding:'40px 0' }}>
+                  <div style={{ fontSize:36, marginBottom:14 }}>✉️</div>
+                  <p style={{ fontSize:17, fontWeight:600, color:'#fff', marginBottom:8 }}>Message sent!</p>
+                  <p style={{ fontSize:13, color:'rgba(255,255,255,0.4)' }}>Thanks for reaching out. I'll get back to you within a day.</p>
+                  <button onClick={() => setSent(false)} style={{ marginTop:18, padding:'9px 20px', border:'1px solid rgba(255,255,255,0.1)', borderRadius:4, fontFamily:"'DM Mono',monospace", fontSize:10, color:'rgba(255,255,255,0.4)', background:'none', cursor:'pointer', letterSpacing:'0.08em' }}>SEND ANOTHER</button>
+                </div>
+              ) : (
+                <>
+                  <div className="form-row">
+                    <div><label className="flbl">Name</label><input className="finput" placeholder="Your name" value={form.name} onChange={e => setForm(f=>({...f,name:e.target.value}))} /></div>
+                    <div><label className="flbl">Email</label><input className="finput" type="email" placeholder="your@email.com" value={form.email} onChange={e => setForm(f=>({...f,email:e.target.value}))} /></div>
+                  </div>
+                  <label className="flbl">Message</label>
+                  <textarea className="finput" rows={4} placeholder="What's on your mind?" style={{ resize:'vertical' }} value={form.msg} onChange={e => setForm(f=>({...f,msg:e.target.value}))} />
+                  {formErr && <p className="form-err">Please fill in all fields.</p>}
+                  <button className="fsubmit" onClick={sendMsg}>Send Message →</button>
+                </>
+              )}
+            </div>
+          </div>
+        </section>
 
-      {/* MODAL */}
-      <AnimatePresence>
-        {modal && (
-          <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} onClick={() => setModal(null)}
-            style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.55)", backdropFilter: "blur(10px)", zIndex: 200, display: "flex", alignItems: "center", justifyContent: "center", padding: 16 }}>
-            <motion.div initial={{ scale: 0.93, opacity: 0, y: 20 }} animate={{ scale: 1, opacity: 1, y: 0 }} exit={{ scale: 0.93, opacity: 0 }} onClick={e => e.stopPropagation()}
-              style={{ background: "var(--ct-card)", border: "1px solid var(--ct-line)", borderRadius: 12, padding: "clamp(20px,4vw,36px)", maxWidth: 580, width: "100%", maxHeight: "85vh", overflowY: "auto", position: "relative" }}>
-              <button onClick={() => setModal(null)} style={{ position: "absolute", top: 14, right: 14, background: "var(--ct-bg)", border: "1px solid var(--ct-line)", borderRadius: 6, width: 30, height: 30, cursor: "pointer", color: "var(--ct-sub)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 13 }}>✕</button>
-              <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 14 }}>
-                <span style={{ fontFamily: "var(--mono)", fontSize: 9, color: "var(--ct-muted)" }}>{modal.num} · {modal.status}</span>
-                <span className="tag">{modal.tag}</span>
-              </div>
-              <h3 style={{ fontFamily: "var(--serif)", fontSize: "clamp(22px,3vw,30px)", fontWeight: 700, marginBottom: 16, color: "var(--ct-text)" }}>{modal.title}</h3>
-              <p style={{ fontSize: 14, color: "var(--ct-sub)", lineHeight: 1.9, marginBottom: 20 }}>{modal.detail}</p>
-              <p style={{ fontFamily: "var(--mono)", fontSize: 9, color: "var(--ct-muted)", marginBottom: 10 }}>Architecture: {modal.arch}</p>
-              <div style={{ display: "flex", flexWrap: "wrap", gap: 6, marginBottom: 24 }}>
-                {modal.tech.map(t => <span key={t} className="tag">{t}</span>)}
-              </div>
-              <a href={modal.github} target="_blank" rel="noreferrer" className="btn-outline" style={{ display: "inline-flex" }}>
-                {GH} View on GitHub
-              </a>
-            </motion.div>
-          </motion.div>
-        )}
-      </AnimatePresence>
-    </div>
+        {/* FOOTER */}
+        <footer className="footer">
+          <span className="footer-l">YASH PATIL · © 2026</span>
+          <span className="footer-l">JAVA BACKEND DEVELOPER</span>
+          <span className="footer-l">PUNE, INDIA</span>
+        </footer>
+
+      </main>
+
+      <Modal name={modal} onClose={() => setModal(null)} />
+    </>
   );
 }
